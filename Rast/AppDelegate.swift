@@ -61,8 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "RTL from Current Selection", action: #selector(openFromCurrentSelection), keyEquivalent: "s"))
-        menu.addItem(NSMenuItem(title: "Shortcut: Ctrl+Option+R (Copy + Open RTL Pad)", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Test Shortcut Action Now", action: #selector(testShortcutActionNow), keyEquivalent: "t"))
         menu.addItem(NSMenuItem(title: "RTL from Clipboard", action: #selector(openFromClipboard), keyEquivalent: "v"))
         menu.addItem(NSMenuItem(title: "Open RTL Pad", action: #selector(openEmptyPad), keyEquivalent: "o"))
         menu.addItem(NSMenuItem.separator())
@@ -96,9 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func checkPermissionsNow() {
         let ax = AccessibilityPermissionHelper.isTrusted()
-        let im = InputMonitoringPermissionHelper.isTrusted()
-        
-        let msg = "Accessibility: \(ax ? "✅ Allowed" : "❌ Denied")\nInput Monitoring: \(im ? "✅ Allowed" : "❌ Denied")"
+        let msg = "Accessibility: \(ax ? "✅ Allowed" : "❌ Denied")"
         floatingUI.showTextPanel(with: msg + "\n\nاگر علامت ❌ می‌بینید، یعنی اجازه صادر نشده است.")
     }
 
