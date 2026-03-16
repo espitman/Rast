@@ -22,9 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AccessibilityPermissionHelper.isTrusted(prompt: true) {
             print("Accessibility permission is not granted yet.")
         }
-        if !InputMonitoringPermissionHelper.isTrusted(prompt: true) {
-            print("Input Monitoring permission is not granted yet.")
-        }
 
         selectionMonitor.onSelectionChanged = { [weak self] selectedText in
             guard let self else { return }
@@ -60,8 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "RTL"
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "RTL from Current Selection", action: #selector(openFromCurrentSelection), keyEquivalent: "s"))
-        menu.addItem(NSMenuItem(title: "RTL from Clipboard", action: #selector(openFromClipboard), keyEquivalent: "v"))
+        menu.addItem(NSMenuItem(title: "Shortcut: Ctrl+Option+R (Copy + Open RTL Pad)", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Open RTL Pad", action: #selector(openEmptyPad), keyEquivalent: "o"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Check Accessibility Status", action: #selector(checkPermissionsNow), keyEquivalent: ""))
@@ -152,20 +148,6 @@ enum AccessibilityPermissionHelper {
     }
 }
 
-enum InputMonitoringPermissionHelper {
-    static func isTrusted(prompt: Bool = false) -> Bool {
-        if prompt {
-            return CGRequestListenEventAccess()
-        }
-        return CGPreflightListenEventAccess()
-    }
-
-    static func openInputMonitoringSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-}
 
 final class GlobalShortcutMonitor {
     var onTrigger: (() -> Void)?
