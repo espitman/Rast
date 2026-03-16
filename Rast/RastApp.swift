@@ -1,0 +1,12 @@
+import SwiftUI
+
+@main
+struct RastApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    var body: some Scene {
+        Settings {
+            EmptyView()
+        }
+    }
+}
