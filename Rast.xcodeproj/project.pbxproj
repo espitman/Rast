@@ -11,6 +11,12 @@
 		A1B2C3D4E5F6000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000012 /* AppDelegate.swift */; };
 		A1B2C3D4E5F6000000000003 /* RTLViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000013 /* RTLViews.swift */; };
 		A1B2C3D4E5F6000000000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000016 /* Assets.xcassets */; };
+		A1B2C3D4E5F6001000000001 /* SelectionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000011 /* SelectionMonitor.swift */; };
+		A1B2C3D4E5F6001000000002 /* ClipboardMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000012 /* ClipboardMonitor.swift */; };
+		A1B2C3D4E5F6001000000003 /* GlobalShortcutMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000013 /* GlobalShortcutMonitor.swift */; };
+		A1B2C3D4E5F6001000000004 /* SelectionCopyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000014 /* SelectionCopyService.swift */; };
+		A1B2C3D4E5F6001000000005 /* AccessibilityPermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000015 /* AccessibilityPermissionHelper.swift */; };
+		A1B2C3D4E5F6001000000006 /* FloatingUIController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6001000000016 /* FloatingUIController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +26,12 @@
 		A1B2C3D4E5F6000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000015 /* Rast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rast.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6001000000011 /* SelectionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6001000000012 /* ClipboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6001000000013 /* GlobalShortcutMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcutMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6001000000014 /* SelectionCopyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionCopyService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6001000000015 /* AccessibilityPermissionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPermissionHelper.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6001000000016 /* FloatingUIController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingUIController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,21 +48,91 @@
 		A1B2C3D4E5F6000000000031 = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F6000000000032 /* Rast */,
+				A1B2C3D4E5F6000100000001 /* Sources */,
+				A1B2C3D4E5F6000100000002 /* Resources */,
 				A1B2C3D4E5F6000000000033 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F6000000000032 /* Rast */ = {
+		A1B2C3D4E5F6000100000001 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000100000011 /* App */,
+				A1B2C3D4E5F6000100000012 /* Core */,
+				A1B2C3D4E5F6000100000013 /* UI */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000011 /* App */ = {
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F6000000000011 /* RastApp.swift */,
 				A1B2C3D4E5F6000000000012 /* AppDelegate.swift */,
-				A1B2C3D4E5F6000000000013 /* RTLViews.swift */,
-				A1B2C3D4E5F6000000000014 /* Info.plist */,
-				A1B2C3D4E5F6000000000016 /* Assets.xcassets */,
 			);
-			path = Rast;
+			path = App;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000012 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000100000021 /* Monitors */,
+				A1B2C3D4E5F6000100000022 /* Services */,
+				A1B2C3D4E5F6000100000023 /* Helpers */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000021 /* Monitors */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6001000000011 /* SelectionMonitor.swift */,
+				A1B2C3D4E5F6001000000012 /* ClipboardMonitor.swift */,
+				A1B2C3D4E5F6001000000013 /* GlobalShortcutMonitor.swift */,
+			);
+			path = Monitors;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000022 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6001000000014 /* SelectionCopyService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000023 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6001000000015 /* AccessibilityPermissionHelper.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000013 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6001000000016 /* FloatingUIController.swift */,
+				A1B2C3D4E5F6000100000031 /* Views */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000031 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000013 /* RTLViews.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000100000002 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000016 /* Assets.xcassets */,
+				A1B2C3D4E5F6000000000014 /* Info.plist */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		A1B2C3D4E5F6000000000033 /* Products */ = {
@@ -132,6 +214,12 @@
 			files = (
 				A1B2C3D4E5F6000000000001 /* RastApp.swift in Sources */,
 				A1B2C3D4E5F6000000000002 /* AppDelegate.swift in Sources */,
+				A1B2C3D4E5F6001000000005 /* AccessibilityPermissionHelper.swift in Sources */,
+				A1B2C3D4E5F6001000000001 /* SelectionMonitor.swift in Sources */,
+				A1B2C3D4E5F6001000000002 /* ClipboardMonitor.swift in Sources */,
+				A1B2C3D4E5F6001000000003 /* GlobalShortcutMonitor.swift in Sources */,
+				A1B2C3D4E5F6001000000004 /* SelectionCopyService.swift in Sources */,
+				A1B2C3D4E5F6001000000006 /* FloatingUIController.swift in Sources */,
 				A1B2C3D4E5F6000000000003 /* RTLViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -149,7 +237,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Rast/Info.plist;
+				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -174,7 +262,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Rast/Info.plist;
+				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
