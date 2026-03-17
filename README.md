@@ -54,6 +54,24 @@ Rast/
    - Enable **Rast**.
    - *Note: This is required to read text selection and listen for global shortcuts.*
 
+## 📦 GitHub Releases
+
+Rast can now publish ready-to-download binaries on the GitHub `Releases` page.
+
+### Automatic release flow
+- Push a tag like `v1.0.1`.
+- GitHub Actions builds the macOS app.
+- The workflow uploads both `.dmg` and `.zip` files to the matching Release page.
+
+### Local packaging
+If you want to build the release artifacts locally first:
+
+```bash
+./package_release.sh 1.0.1
+```
+
+The generated files will be placed in `dist/`.
+
 ---
 
 ## 🤝 Contribution

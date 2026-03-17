@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Make packaging script executable
+        run: chmod +x ./package_release.sh
+
+      - name: Build release artifacts
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'manual' }}
+        run: |
+          VERSION="$RELEASE_VERSION"
+          if [[ "$VERSION" == "manual" ]]; then
+            VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+          else
+            VERSION="${VERSION#v}"
+          fi
+          ./package_release.sh "$VERSION"
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          shasum -a 256 *.dmg *.zip > SHA256SUMS.txt
+
+      - name: Create or update GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" dist/* --clobber
+          else
+            gh release create "$TAG_NAME" dist/* --title "$TAG_NAME" --generate-notes
+          fi
