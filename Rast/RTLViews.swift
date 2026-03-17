@@ -68,7 +68,7 @@ struct RTLTextPanelView: View {
 
                 TextEditor(text: $text)
                     .font(.custom("Vazirmatn-Regular", size: 16))
-                    .lineSpacing(6)
+                    .lineSpacing(4)
                     .multilineTextAlignment(.leading)
                     .scrollContentBackground(.hidden)
                     .padding(8)

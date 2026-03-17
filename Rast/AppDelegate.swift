@@ -3,7 +3,7 @@ import ApplicationServices
 import Carbon
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let selectionMonitor = SelectionMonitor()
     private let clipboardMonitor = ClipboardMonitor()
     private let selectionCopyService = SelectionCopyService()
@@ -64,9 +64,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
 
+        menu.delegate = self
         menu.items.forEach { $0.target = self }
         item.menu = menu
         statusItem = item
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        updateMenu(menu)
+    }
+
+    private func updateMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
+        
+        if !AccessibilityPermissionHelper.isTrusted() {
+            let warningItem = NSMenuItem(title: "⚠️ Accessibility Access Required", action: #selector(requestAccessibility), keyEquivalent: "")
+            warningItem.attributedTitle = NSAttributedString(string: "⚠️ Accessibility Access Required", attributes: [.foregroundColor: NSColor.systemRed])
+            menu.addItem(warningItem)
+            menu.addItem(NSMenuItem(title: "Grant Permission...", action: #selector(requestAccessibility), keyEquivalent: ""))
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        menu.addItem(NSMenuItem(title: "Shortcut: Ctrl+Option+R (Copy + Open RTL Pad)", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Open RTL Pad", action: #selector(openEmptyPad), keyEquivalent: "o"))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Check Accessibility Status", action: #selector(checkPermissionsNow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        
+        menu.items.forEach { $0.target = self }
     }
 
     @objc private func openFromCurrentSelection() {
