@@ -67,6 +67,7 @@ final class FloatingUIController: NSObject, NSWindowDelegate {
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        panel.isMovableByWindowBackground = true
         return panel
     }
 
@@ -84,6 +85,7 @@ final class FloatingUIController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.delegate = self
+        panel.isMovableByWindowBackground = true
         return panel
     }
 
