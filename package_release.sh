@@ -9,7 +9,12 @@ CONFIGURATION="${CONFIGURATION:-Release}"
 VERSION="${1:-}"
 
 if [[ -z "$VERSION" ]]; then
-  VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Resources/Info.plist")"
+  # Extract the real marketing version directly from the Xcode project file
+  VERSION=$(grep "MARKETING_VERSION" "$PROJECT_PATH/project.pbxproj" | head -n 1 | sed -E 's/.*= ([0-9.]+);/\1/' | tr -d ' ')
+  # Final fallback if extraction fails
+  if [[ -z "$VERSION" || "$VERSION" == "\$(MARKETING_VERSION)" ]]; then
+    VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Resources/Info.plist")"
+  fi
 fi
 
 BUILD_ROOT="$ROOT_DIR/build"
