@@ -3,13 +3,15 @@ import ApplicationServices
 import Carbon
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private let selectionMonitor = SelectionMonitor()
     private let clipboardMonitor = ClipboardMonitor()
     private let selectionCopyService = SelectionCopyService()
     private let globalShortcutMonitor = GlobalShortcutMonitor()
     private let floatingUI = FloatingUIController()
     private var statusItem: NSStatusItem?
+    private let popover = NSPopover()
+    private var eventMonitor: EventMonitor?
 
     private var latestDetectedSelection: String = ""
     private var latestClipboardText: String = ""
@@ -54,39 +56,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "RTL"
-
-        let menu = NSMenu()
-        menu.delegate = self
-        updateMenu(menu)
-        item.menu = menu
-        statusItem = item
-    }
-
-    func menuWillOpen(_ menu: NSMenu) {
-        updateMenu(menu)
-    }
-
-    private func updateMenu(_ menu: NSMenu) {
-        menu.removeAllItems()
-        
-        if !AccessibilityPermissionHelper.isTrusted() {
-            let warningItem = NSMenuItem(title: "⚠️ Accessibility Access Required", action: #selector(requestAccessibility), keyEquivalent: "")
-            warningItem.attributedTitle = NSAttributedString(string: "⚠️ Accessibility Access Required", attributes: [.foregroundColor: NSColor.systemRed])
-            menu.addItem(warningItem)
-            menu.addItem(NSMenuItem(title: "Grant Permission...", action: #selector(requestAccessibility), keyEquivalent: ""))
-            menu.addItem(NSMenuItem.separator())
+        if let button = item.button {
+            button.title = "RTL"
+            button.action = #selector(togglePopover(_:))
+            button.target = self
         }
+        statusItem = item
 
-        menu.addItem(NSMenuItem(title: "Shortcut: Ctrl+Option+R (Copy + Open RTL Pad)", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Open RTL Pad", action: #selector(openEmptyPad), keyEquivalent: "o"))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Check Accessibility Status", action: #selector(checkPermissionsNow), keyEquivalent: ""))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        let menuView = MenuBarView(
+            onOpenRTLPad: { [weak self] in 
+                self?.openEmptyPad()
+                self?.closePopover()
+            },
+            onCheckAccessibility: { [weak self] in 
+                self?.checkPermissionsNow()
+                self?.closePopover()
+            },
+            onQuit: { [weak self] in 
+                self?.quitApp()
+            }
+        )
+
+        popover.contentViewController = NSHostingController(rootView: menuView)
+        popover.behavior = .transient
         
-        menu.items.forEach { $0.target = self }
+        eventMonitor = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            if let self = self, self.popover.isShown {
+                self.closePopover()
+            }
+        }
     }
+
+    @objc private func togglePopover(_ sender: AnyObject?) {
+        if popover.isShown {
+            closePopover(sender)
+        } else {
+            showPopover(sender)
+        }
+    }
+
+    private func showPopover(_ sender: AnyObject?) {
+        if let button = statusItem?.button {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            eventMonitor?.start()
+        }
+    }
+
+    private func closePopover(_ sender: AnyObject? = nil) {
+        popover.performClose(sender)
+        eventMonitor?.stop()
+    }
+
 
     @objc private func openFromCurrentSelection() {
         let direct = selectionMonitor.readCurrentSelection()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
