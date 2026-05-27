@@ -43,10 +43,10 @@ struct RTLTextPanelView: View {
 
             VStack(spacing: 12) {
                 HStack(spacing: 8) {
-                Text("RTL Pad")
+                    Text("RTL Pad")
                         .font(.custom("Vazirmatn-Bold", size: 14))
                         .foregroundStyle(.primary.opacity(0.9))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Button("Paste") {
                         text = NSPasteboard.general.string(forType: .string) ?? text
@@ -181,10 +181,6 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             if preserveSelection, !selectedRanges.isEmpty {
                 textView.selectedRanges = selectedRanges
             }
-
-            let dominantRTL = Self.shouldRenderRTL(text)
-            textView.alignment = dominantRTL ? .right : .left
-            textView.baseWritingDirection = dominantRTL ? .rightToLeft : .leftToRight
         }
 
         private static func shouldRenderRTL(_ text: String) -> Bool {
