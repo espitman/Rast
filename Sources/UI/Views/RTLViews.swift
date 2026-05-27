@@ -273,143 +273,241 @@ struct MenuBarView: View {
 
     var body: some View {
         ZStack {
-            // Dark Interface Background
-            Color(red: 0.12, green: 0.13, blue: 0.16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-                )
+            LinearGradient(
+                colors: [
+                    Color(red: 0.145, green: 0.152, blue: 0.19),
+                    Color(red: 0.118, green: 0.124, blue: 0.155)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.22),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .overlay(alignment: .topLeading) {
+                Circle()
+                    .fill(Color(red: 0.34, green: 0.56, blue: 1.0).opacity(0.18))
+                    .frame(width: 180, height: 180)
+                    .blur(radius: 42)
+                    .offset(x: -28, y: -70)
+            }
 
             VStack(spacing: 0) {
-                // Header Row
-                HStack(alignment: .center, spacing: 12) {
-                    if let appIcon = NSApp.applicationIconImage {
-                        Image(nsImage: appIcon)
-                            .resizable()
-                            .frame(width: 38, height: 38)
-                            .cornerRadius(8)
+                headerSection
+                shortcutPill
+
+                VStack(spacing: 14) {
+                    actionCard(
+                        title: "Open RTL Pad",
+                        subtitle: "Compose, clean up, and copy bidirectional text.",
+                        trailingLabel: "⌘O",
+                        accent: Color(red: 0.37, green: 0.67, blue: 1.0),
+                        iconSystemName: "arrow.up.left.and.arrow.down.right"
+                    ) {
+                        onOpenRTLPad()
                     }
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Rast")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                        
-                        Text("Right-to-Left utility tool for macOS.")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary.opacity(0.6))
+                    actionCard(
+                        title: "Accessibility",
+                        subtitle: isAccessibilityEnabled ? "Everything is ready for selection capture." : "Grant access to read text from other apps.",
+                        trailingLabel: isAccessibilityEnabled ? "Ready" : "Fix",
+                        accent: isAccessibilityEnabled ? Color(red: 0.26, green: 0.84, blue: 0.42) : Color(red: 1.0, green: 0.67, blue: 0.21),
+                        iconSystemName: isAccessibilityEnabled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                    ) {
+                        onCheckAccessibility()
                     }
-                    Spacer()
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.horizontal, 18)
+                .padding(.top, 16)
+                .padding(.bottom, 18)
 
-                // Global Shortcut Banner (Full Width)
-                HStack {
-                    Spacer()
-                    Text("Global: ⌃⌥R")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.45))
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.04))
-                .overlay(
-                    Rectangle()
-                        .frame(height: 0.5)
-                        .foregroundColor(Color.white.opacity(0.1)),
-                    alignment: .top
-                )
-                .overlay(
-                    Rectangle()
-                        .frame(height: 0.5)
-                        .foregroundColor(Color.white.opacity(0.1)),
-                    alignment: .bottom
-                )
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 1)
+                    .padding(.horizontal, 18)
 
-                VStack(spacing: 8) {
-                    // Open RTL Pad Card
-                    Button(action: onOpenRTLPad) {
-                        HStack {
-                            Text("Open RTL Pad")
-                                .font(.system(size: 14, weight: .medium))
-                            Spacer()
-                            Text("⌘O")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.03))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(SimpleHoverButtonStyle())
-
-                    // Accessibility Status Card
-                    Button(action: onCheckAccessibility) {
-                        HStack {
-                            Text("Accessibility Status")
-                                .font(.system(size: 14, weight: .medium))
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(isAccessibilityEnabled ? Color.green : Color.orange)
-                                    .frame(width: 7, height: 7)
-                                Text(isAccessibilityEnabled ? "Enabled" : "Fix")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(isAccessibilityEnabled ? .green.opacity(0.8) : .orange)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.01))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.05), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(SimpleHoverButtonStyle())
-                }
-                .padding(16)
-
-                Divider().background(Color.white.opacity(0.05))
-
-                // Quit Button
                 Button(action: onQuit) {
-                    HStack {
+                    HStack(spacing: 10) {
+                        Image(systemName: "power")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.5))
+
                         Text("Quit")
-                            .font(.system(size: 13))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.92))
+
                         Spacer()
+
                         Text("⌘Q")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.36))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-                .buttonStyle(SimpleHoverButtonStyle())
+                .buttonStyle(SimpleHoverButtonStyle(opacityDelta: 0.08, scale: 0.99))
             }
         }
-        .frame(width: 310)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.34), radius: 20, x: 0, y: 10)
+        .frame(width: 348)
         .onAppear {
             isAccessibilityEnabled = AccessibilityPermissionHelper.isTrusted()
         }
     }
+
+    private var headerSection: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.14),
+                                Color.white.opacity(0.04)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    )
+
+                if let appIcon = NSApp.applicationIconImage {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(4)
+                }
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Rast")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text("Bidirectional writing companion")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.42))
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 18)
+    }
+
+    private var shortcutPill: some View {
+        HStack(spacing: 10) {
+            Text("Global Shortcut")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.45))
+
+            Spacer(minLength: 0)
+
+            Text("⌃⌥R")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.78))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.055))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 18)
+    }
+
+    private func actionCard(
+        title: String,
+        subtitle: String,
+        trailingLabel: String,
+        accent: Color,
+        iconSystemName: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(accent.opacity(0.14))
+                    Image(systemName: iconSystemName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+                .frame(width: 42, height: 42)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+
+                    Text(subtitle)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.42))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 7) {
+                    if title == "Accessibility" {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 8, height: 8)
+                    }
+
+                    Text(trailingLabel)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(accent)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(SimpleHoverButtonStyle(opacityDelta: 0.04, scale: 0.992))
+    }
 }
 
 struct SimpleHoverButtonStyle: ButtonStyle {
+    var opacityDelta: Double = 0.1
+    var scale: CGFloat = 0.985
     @State private var isHovered = false
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(isHovered ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .opacity(isHovered ? (1.0 - opacityDelta) : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
+            .animation(.spring(response: 0.24, dampingFraction: 0.72), value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }
 }
