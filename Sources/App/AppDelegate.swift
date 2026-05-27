@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.closePopover()
             },
             onCheckAccessibility: { [weak self] in 
-                self?.checkPermissionsNow()
+                self?.openAccessibilitySettings()
                 self?.closePopover()
             },
             onQuit: { [weak self] in 
@@ -127,13 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         floatingUI.showTextPanel(with: "")
     }
 
-    @objc private func checkPermissionsNow() {
-        let ax = AccessibilityPermissionHelper.isTrusted()
-        let msg = "Accessibility: \(ax ? "✅ Allowed" : "❌ Denied")"
-        floatingUI.showTextPanel(with: msg + "\n\nاگر علامت ❌ می‌بینید، یعنی اجازه صادر نشده است.")
-    }
-
-    @objc private func requestAccessibility() {
+    @objc private func openAccessibilitySettings() {
         _ = AccessibilityPermissionHelper.isTrusted(prompt: true)
         AccessibilityPermissionHelper.openAccessibilitySettings()
     }

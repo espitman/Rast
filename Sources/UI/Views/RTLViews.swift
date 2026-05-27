@@ -43,10 +43,10 @@ struct RTLTextPanelView: View {
 
             VStack(spacing: 12) {
                 HStack(spacing: 8) {
-                    Text("RTL Pad")
+                Text("RTL Pad")
                         .font(.custom("Vazirmatn-Bold", size: 14))
                         .foregroundStyle(.primary.opacity(0.9))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
 
                     Button("Paste") {
                         text = NSPasteboard.general.string(forType: .string) ?? text
@@ -68,11 +68,7 @@ struct RTLTextPanelView: View {
                 }
                 .padding(.horizontal, 4)
 
-                TextEditor(text: $text)
-                    .font(.custom("Vazirmatn-Regular", size: 16))
-                    .lineSpacing(4)
-                    .multilineTextAlignment(.leading)
-                    .scrollContentBackground(.hidden)
+                BidirectionalTextEditor(text: $text)
                     .padding(10)
                     .background(Color.black.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -82,9 +78,125 @@ struct RTLTextPanelView: View {
                     )
             }
             .padding(16)
-            .environment(\.layoutDirection, .rightToLeft)
         }
         .padding(1)
+    }
+}
+
+struct BidirectionalTextEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSTextView.scrollableTextView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.borderType = .noBorder
+        scrollView.autohidesScrollers = true
+
+        guard let textView = scrollView.documentView as? NSTextView else {
+            return scrollView
+        }
+
+        textView.delegate = context.coordinator
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        textView.allowsUndo = true
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .white
+        textView.font = NSFont(name: "Vazirmatn-Regular", size: 16) ?? .systemFont(ofSize: 16)
+        textView.textContainerInset = NSSize(width: 2, height: 6)
+        textView.string = text
+
+        context.coordinator.textView = textView
+        context.coordinator.applyDirectionStyling(to: textView, text: text, preserveSelection: false)
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        guard textView.string != text else {
+            context.coordinator.applyDirectionStyling(to: textView, text: text, preserveSelection: true)
+            return
+        }
+
+        textView.string = text
+        context.coordinator.applyDirectionStyling(to: textView, text: text, preserveSelection: false)
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding var text: String
+        weak var textView: NSTextView?
+        private var isApplyingStyle = false
+
+        init(text: Binding<String>) {
+            _text = text
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView, !isApplyingStyle else { return }
+            let latestText = textView.string
+            if text != latestText {
+                text = latestText
+            }
+            applyDirectionStyling(to: textView, text: latestText, preserveSelection: true)
+        }
+
+        func applyDirectionStyling(to textView: NSTextView, text: String, preserveSelection: Bool) {
+            guard !isApplyingStyle else { return }
+            isApplyingStyle = true
+            defer { isApplyingStyle = false }
+
+            let selectedRanges = preserveSelection ? textView.selectedRanges : []
+            let fullRange = NSRange(location: 0, length: (text as NSString).length)
+            let storage = textView.textStorage
+
+            storage?.beginEditing()
+            storage?.removeAttribute(.paragraphStyle, range: fullRange)
+
+            let nsText = text as NSString
+            nsText.enumerateSubstrings(in: NSRange(location: 0, length: nsText.length), options: [.byParagraphs, .substringNotRequired]) { _, paragraphRange, _, _ in
+                let lineText = nsText.substring(with: paragraphRange)
+                let isRTL = Self.shouldRenderRTL(lineText)
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.alignment = isRTL ? .right : .left
+                paragraphStyle.baseWritingDirection = isRTL ? .rightToLeft : .leftToRight
+                paragraphStyle.lineSpacing = 4
+                paragraphStyle.paragraphSpacing = 6
+
+                storage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: paragraphRange)
+            }
+            storage?.endEditing()
+
+            if preserveSelection, !selectedRanges.isEmpty {
+                textView.selectedRanges = selectedRanges
+            }
+
+            let dominantRTL = Self.shouldRenderRTL(text)
+            textView.alignment = dominantRTL ? .right : .left
+            textView.baseWritingDirection = dominantRTL ? .rightToLeft : .leftToRight
+        }
+
+        private static func shouldRenderRTL(_ text: String) -> Bool {
+            text.unicodeScalars.contains { scalar in
+                switch scalar.value {
+                case 0x0590...0x08FF, 0xFB50...0xFDFF, 0xFE70...0xFEFF:
+                    return true
+                default:
+                    return false
+                }
+            }
+        }
     }
 }
 
