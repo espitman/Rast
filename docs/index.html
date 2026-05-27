@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rast | دانلود ابزار راست‌چین برای macOS</title>
+    <meta
+      name="description"
+      content="Rast یک ابزار macOS برای خواندن، ویرایش و مدیریت متن‌های فارسی و دوزبانه در هر برنامه است. دانلود مستقیم DMG، معرفی امکانات و راهنمای نصب."
+    />
+    <meta name="theme-color" content="#0f1218" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+    <style>
+      :root {
+        --bg: #0b0e13;
+        --panel: rgba(18, 22, 31, 0.82);
+        --panel-strong: rgba(22, 28, 39, 0.94);
+        --line: rgba(255, 255, 255, 0.1);
+        --line-soft: rgba(255, 255, 255, 0.06);
+        --text: #f5f7fb;
+        --muted: rgba(245, 247, 251, 0.6);
+        --muted-strong: rgba(245, 247, 251, 0.78);
+        --accent: #7fd7ff;
+        --accent-2: #6c8dff;
+        --success: #5ce293;
+        --shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+        --radius-xl: 32px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --content: 1160px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        background: #0b0e13;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Vazirmatn", system-ui, sans-serif;
+        background-color: #0b0e13;
+        background:
+          radial-gradient(circle at top right, rgba(127, 215, 255, 0.12), transparent 28%),
+          radial-gradient(circle at left 20%, rgba(108, 141, 255, 0.14), transparent 24%),
+          linear-gradient(180deg, #0a0d12 0%, #0f131a 38%, #0b0e13 100%),
+          #0b0e13;
+        background-size: 120% 120%, 120% 120%, 100% 100%;
+        color: var(--text);
+        animation: ambientShift 16s ease-in-out infinite alternate;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      .page-shell {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .page-shell::before,
+      .page-shell::after {
+        content: "";
+        position: fixed;
+        inset: auto;
+        border-radius: 999px;
+        filter: blur(80px);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .page-shell::before {
+        top: -120px;
+        right: -80px;
+        width: 360px;
+        height: 360px;
+        background: rgba(127, 215, 255, 0.16);
+        animation: glowDrift 13s ease-in-out infinite alternate;
+      }
+
+      .page-shell::after {
+        left: -120px;
+        bottom: 12%;
+        width: 320px;
+        height: 320px;
+        background: rgba(108, 141, 255, 0.18);
+        animation: glowDrift 15s ease-in-out infinite alternate-reverse;
+      }
+
+      .container {
+        width: min(var(--content), calc(100% - 40px));
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 22px 0 14px;
+        animation: riseIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-badge {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        padding: 8px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+          rgba(17, 22, 31, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+        animation: iconPulse 5s ease-in-out infinite;
+      }
+
+      .brand-text h1 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .brand-text p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .ghost-link {
+        padding: 11px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted-strong);
+        background: rgba(255, 255, 255, 0.03);
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      }
+
+      .ghost-link:hover {
+        transform: translateY(-1px);
+        border-color: rgba(127, 215, 255, 0.34);
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+        gap: 28px;
+        align-items: stretch;
+        padding: 26px 0 46px;
+      }
+
+      .hero-copy,
+      .hero-preview,
+      .section-card,
+      .download-card,
+      .info-card {
+        background: linear-gradient(180deg, rgba(22, 28, 39, 0.9), rgba(13, 17, 24, 0.92));
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero-copy {
+        border-radius: var(--radius-xl);
+        padding: 38px;
+        position: relative;
+        overflow: hidden;
+        animation: riseIn 800ms 120ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .hero-copy::after {
+        content: "";
+        position: absolute;
+        inset: auto auto -80px -40px;
+        width: 240px;
+        height: 240px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(127, 215, 255, 0.22), transparent 70%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 18px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        color: var(--muted-strong);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 0.92rem;
+        font-weight: 600;
+      }
+
+      .hero-copy h2 {
+        margin: 0 0 14px;
+        font-size: clamp(1.9rem, 4.3vw, 3.7rem);
+        line-height: 1.24;
+        letter-spacing: 0;
+        font-weight: 800;
+      }
+
+      .hero-copy p {
+        margin: 0;
+        max-width: 60ch;
+        font-size: 1.08rem;
+        line-height: 2;
+        color: var(--muted-strong);
+      }
+
+      .hero-cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 54px;
+        padding: 0 22px;
+        border-radius: 16px;
+        border: 1px solid transparent;
+        font-weight: 700;
+        position: relative;
+        overflow: hidden;
+        transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease, border-color 180ms ease;
+      }
+
+      .button::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.38) 46%, transparent 72%);
+        transform: translateX(120%);
+        pointer-events: none;
+      }
+
+      .button.primary::after {
+        animation: buttonShine 4.5s ease-in-out infinite;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button.primary {
+        color: #06111f;
+        background: linear-gradient(135deg, var(--accent), #a4efff);
+        box-shadow: 0 18px 40px rgba(127, 215, 255, 0.28);
+      }
+
+      .button.secondary {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        color: var(--muted-strong);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line-soft);
+        font-size: 0.92rem;
+      }
+
+      .hero-preview {
+        border-radius: var(--radius-xl);
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        animation: riseIn 800ms 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .preview-window {
+        border-radius: 26px;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(35, 44, 60, 0.85), rgba(18, 24, 34, 0.92));
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        animation: floatPanel 7s ease-in-out 1s infinite;
+      }
+
+      .preview-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .preview-dots {
+        display: flex;
+        gap: 8px;
+      }
+
+      .preview-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+
+      .preview-dots span:nth-child(1) {
+        background: #ff675f;
+        animation-delay: 0ms;
+      }
+
+      .preview-dots span:nth-child(2) {
+        background: #f6bf43;
+        animation-delay: 180ms;
+      }
+
+      .preview-dots span:nth-child(3) {
+        background: #30c95a;
+        animation-delay: 360ms;
+      }
+
+      .preview-dots span {
+        animation: dotBlink 3.2s ease-in-out infinite;
+      }
+
+      .preview-title {
+        color: var(--muted-strong);
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .preview-body {
+        padding: 22px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .preview-bubble {
+        border-radius: 18px;
+        padding: 16px 18px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        line-height: 1.95;
+        color: var(--muted-strong);
+        animation: bubbleIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .preview-bubble:nth-child(2) {
+        animation-delay: 220ms;
+      }
+
+      .preview-bubble:nth-child(3) {
+        animation-delay: 420ms;
+      }
+
+      .preview-bubble.ltr {
+        direction: ltr;
+        text-align: left;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      }
+
+      .preview-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .preview-footer-note {
+        padding: 16px 4px 0;
+        color: var(--muted);
+        line-height: 1.9;
+      }
+
+      .sections {
+        display: grid;
+        gap: 22px;
+        padding-bottom: 36px;
+      }
+
+      .section-card {
+        border-radius: 28px;
+        padding: 28px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .section-head h3 {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 800;
+      }
+
+      .section-head p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        line-height: 1.9;
+      }
+
+      .grid-3,
+      .grid-2 {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .info-card,
+      .download-card {
+        border-radius: 22px;
+        padding: 22px;
+        transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
+      }
+
+      .info-card:hover,
+      .download-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(127, 215, 255, 0.24);
+      }
+
+      .info-card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+      }
+
+      .card-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        color: var(--muted);
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .card-label i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .info-card h4,
+      .download-card h4 {
+        margin: 0 0 10px;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+
+      .info-card p,
+      .download-card p,
+      .info-card li {
+        color: var(--muted-strong);
+        line-height: 1.95;
+        margin: 0;
+      }
+
+      .info-card ul {
+        margin: 0;
+        padding: 0 20px 0 0;
+      }
+
+      .downloads-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 16px;
+      }
+
+      .download-card.primary {
+        background:
+          radial-gradient(circle at top left, rgba(127, 215, 255, 0.2), transparent 34%),
+          linear-gradient(180deg, rgba(30, 41, 55, 0.96), rgba(17, 23, 31, 0.96));
+      }
+
+      .download-card.secondary {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+      }
+
+      .download-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .download-meta span {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .steps {
+        counter-reset: steps;
+      }
+
+      .step {
+        display: flex;
+        align-items: start;
+        gap: 14px;
+        padding: 16px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .step:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .step-index {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(127, 215, 255, 0.18), rgba(108, 141, 255, 0.18));
+        color: #dff9ff;
+        font-weight: 800;
+        animation: stepGlow 4s ease-in-out infinite;
+      }
+
+      .step strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .faq-item {
+        padding: 18px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .faq-item:first-child {
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .faq-item h4 {
+        margin: 0 0 10px;
+        font-size: 1.05rem;
+      }
+
+      .faq-item p {
+        margin: 0;
+        color: var(--muted-strong);
+        line-height: 1.95;
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 12px;
+        padding: 24px 0 40px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .js .section-card,
+      .js .section-head,
+      .js .info-card,
+      .js .download-card,
+      .js .step,
+      .js .faq-item,
+      .js .footer {
+        opacity: 0;
+        transform: translateY(28px);
+        transition:
+          opacity 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          transform 720ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          border-color 220ms ease,
+          background 220ms ease;
+        transition-delay: var(--reveal-delay, 0ms);
+        will-change: opacity, transform;
+      }
+
+      .js .section-head,
+      .js .step,
+      .js .faq-item {
+        transform: translateY(18px);
+      }
+
+      .js .footer {
+        transform: translateY(20px);
+        transition-duration: 760ms;
+      }
+
+      .js .is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .js .info-card.is-visible:hover,
+      .js .download-card.is-visible:hover {
+        transform: translateY(-4px);
+      }
+
+      @keyframes ambientShift {
+        from {
+          background-position: 0% 0%, 100% 16%, 0 0;
+        }
+
+        to {
+          background-position: 16% 7%, 88% 28%, 0 0;
+        }
+      }
+
+      @keyframes glowDrift {
+        from {
+          transform: translate3d(0, 0, 0) scale(1);
+          opacity: 0.72;
+        }
+
+        to {
+          transform: translate3d(32px, 24px, 0) scale(1.08);
+          opacity: 0.48;
+        }
+      }
+
+      @keyframes riseIn {
+        from {
+          opacity: 0;
+          transform: translateY(22px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes iconPulse {
+        0%,
+        100% {
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+        }
+
+        50% {
+          box-shadow: 0 14px 38px rgba(127, 215, 255, 0.18);
+        }
+      }
+
+      @keyframes buttonShine {
+        0%,
+        58% {
+          transform: translateX(120%);
+        }
+
+        78%,
+        100% {
+          transform: translateX(-120%);
+        }
+      }
+
+      @keyframes floatPanel {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      @keyframes dotBlink {
+        0%,
+        100% {
+          opacity: 0.72;
+          transform: scale(1);
+        }
+
+        45% {
+          opacity: 1;
+          transform: scale(1.18);
+        }
+      }
+
+      @keyframes bubbleIn {
+        from {
+          opacity: 0;
+          transform: translateY(14px) scale(0.98);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes stepGlow {
+        0%,
+        100% {
+          box-shadow: 0 0 0 rgba(127, 215, 255, 0);
+        }
+
+        50% {
+          box-shadow: 0 0 22px rgba(127, 215, 255, 0.18);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
+
+        .js .section-card,
+        .js .section-head,
+        .js .info-card,
+        .js .download-card,
+        .js .step,
+        .js .faq-item,
+        .js .footer {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      }
+
+      .code {
+        direction: ltr;
+        text-align: left;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        padding: 3px 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      @media (max-width: 1080px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .downloads-grid,
+        .grid-3,
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .container {
+          width: min(var(--content), calc(100% - 24px));
+        }
+
+        .topbar {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .hero-copy,
+        .hero-preview,
+        .section-card {
+          border-radius: 24px;
+          padding: 22px;
+        }
+
+        .hero-copy h2 {
+          font-size: 2.2rem;
+        }
+
+        .footer {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="container">
+        <header class="topbar">
+          <div class="brand">
+            <img class="brand-badge" src="./assets/rast-icon.png" alt="Rast icon" />
+            <div class="brand-text">
+              <h1>Rast</h1>
+              <p>ابزار سبک macOS برای مدیریت حرفه‌ای متن‌های فارسی و دوزبانه</p>
+            </div>
+          </div>
+
+          <div class="top-actions">
+            <a class="ghost-link" href="https://github.com/espitman/Rast/releases/latest">آخرین Release</a>
+            <a class="ghost-link" href="https://github.com/espitman/Rast">مخزن GitHub</a>
+          </div>
+        </header>
+
+        <main>
+          <section class="hero">
+            <article class="hero-copy">
+              <div class="eyebrow">macOS 13+ · فارسی · راست‌چین هوشمند</div>
+              <h2>متن فارسی را هرجا انتخاب کن، مرتب و راست‌چین ببین.</h2>
+              <p>
+                Rast متن انتخاب‌شده را از برنامه‌ها می‌گیرد و در پنجره‌ای شناور، با جهت درست برای هر خط
+                نشان می‌دهد.
+              </p>
+
+              <div class="hero-cta">
+                <a
+                  class="button primary"
+                  href="https://github.com/espitman/Rast/releases/latest/download/Rast_v1.0.2.dmg"
+                >
+                  دانلود مستقیم DMG
+                </a>
+                <a
+                  class="button secondary"
+                  href="https://github.com/espitman/Rast/releases/latest/download/Rast_v1.0.2.zip"
+                >
+                  دانلود ZIP
+                </a>
+              </div>
+
+              <div class="meta-row">
+                <span class="meta-chip">نسخه فعلی: 1.0.2</span>
+                <span class="meta-chip">دانلود بدون نیاز به سورس‌کد</span>
+                <span class="meta-chip">فونت مناسب فارسی و طراحی native</span>
+              </div>
+            </article>
+
+            <aside class="hero-preview">
+              <div class="preview-window">
+                <div class="preview-topbar">
+                  <div class="preview-dots">
+                    <span></span><span></span><span></span>
+                  </div>
+                  <div class="preview-title">RTL Pad</div>
+                </div>
+                <div class="preview-body">
+                  <div class="preview-bubble">
+                    این پنجره برای متن‌های فارسی و چندزبانه طراحی شده تا هر خط با جهت درست نمایش داده شود.
+                  </div>
+                  <div class="preview-bubble ltr">npm run build</div>
+                  <div class="preview-bubble">اگر یک خط فارسی داشته باشد، همان خط راست‌چین می‌شود.</div>
+                </div>
+              </div>
+              <div class="preview-footer-note">
+                پنجره شناور همیشه بالای بقیه برنامه‌ها می‌ماند، اندازه‌اش ذخیره می‌شود، و برای کار روزمره
+                با متن‌های فارسی مزاحمتی برای workflow ایجاد نمی‌کند.
+              </div>
+            </aside>
+          </section>
+
+          <div class="sections">
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h3>چرا Rast؟</h3>
+                  <p>مشکل اصلی را حل می‌کند: نمایش درست متن فارسی در محیط‌هایی که ذاتاً برای RTL ساخته نشده‌اند.</p>
+                </div>
+              </div>
+
+              <div class="grid-3">
+                <article class="info-card">
+                  <div class="card-label"><i></i>Selection Detection</div>
+                  <h4>گرفتن متن از برنامه‌های دیگر</h4>
+                  <p>
+                    با استفاده از Accessibility API و fallbackهای لازم، متن انتخاب‌شده را از برنامه‌های مختلف
+                    می‌خواند و سریع در پنجره شناور باز می‌کند.
+                  </p>
+                </article>
+
+                <article class="info-card">
+                  <div class="card-label"><i></i>Smart Direction</div>
+                  <h4>تشخیص هوشمند جهت هر خط</h4>
+                  <p>
+                    خط فارسی راست‌چین می‌شود، خط انگلیسی چپ‌چین می‌ماند، و متن‌های mixed هم با منطق line-by-line
+                    نمایش داده می‌شوند.
+                  </p>
+                </article>
+
+                <article class="info-card">
+                  <div class="card-label"><i></i>Floating Workflow</div>
+                  <h4>سبک، سریع و بدون شلوغی</h4>
+                  <p>
+                    Rast یک utility کامل برای منوبار macOS است؛ نه Dock را شلوغ می‌کند، نه نیاز به محیط سنگین
+                    دارد، و همیشه در دسترس می‌ماند.
+                  </p>
+                </article>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h3>دانلود و نصب</h3>
+                  <p>اگر فقط می‌خواهی برنامه را نصب و استفاده کنی، همین دو فایل کافی‌اند.</p>
+                </div>
+              </div>
+
+              <div class="downloads-grid">
+                <article class="download-card primary">
+                  <div class="card-label"><i></i>پیشنهاد اصلی</div>
+                  <h4>دانلود فایل DMG</h4>
+                  <p>
+                    مناسب‌ترین گزینه برای بیشتر کاربران macOS. فایل را دانلود کن، بازش کن و اپ را به
+                    `Applications` بکش.
+                  </p>
+                  <div class="hero-cta" style="margin-top: 20px">
+                    <a
+                      class="button primary"
+                      href="https://github.com/espitman/Rast/releases/latest/download/Rast_v1.0.2.dmg"
+                    >
+                      دریافت DMG
+                    </a>
+                  </div>
+                  <div class="download-meta">
+                    <span>macOS 13 یا جدیدتر</span>
+                    <span>مناسب نصب معمول</span>
+                  </div>
+                </article>
+
+                <article class="download-card secondary">
+                  <div class="card-label"><i></i>گزینه جایگزین</div>
+                  <h4>دانلود فایل ZIP</h4>
+                  <p>
+                    اگر ترجیح می‌دهی فایل فشرده بگیری و دستی اجرا کنی، ZIP هم در دسترس است. این گزینه برای
+                    کاربران فنی‌تر یا تست سریع مناسب است.
+                  </p>
+                  <div class="hero-cta" style="margin-top: 20px">
+                    <a
+                      class="button secondary"
+                      href="https://github.com/espitman/Rast/releases/latest/download/Rast_v1.0.2.zip"
+                    >
+                      دریافت ZIP
+                    </a>
+                  </div>
+                  <div class="download-meta">
+                    <span>نسخه 1.0.2</span>
+                    <span>همه Releaseها در GitHub</span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h3>راهنمای شروع</h3>
+                  <p>بعد از نصب، فقط چند مرحله کوتاه باقی می‌ماند تا برنامه درست کار کند.</p>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <article class="info-card">
+                  <div class="steps">
+                    <div class="step">
+                      <div class="step-index">1</div>
+                      <div>
+                        <strong>برنامه را به Applications منتقل کن</strong>
+                        فایل DMG را باز کن و `Rast.app` را به `Applications` بکش.
+                      </div>
+                    </div>
+
+                    <div class="step">
+                      <div class="step-index">2</div>
+                      <div>
+                        <strong>دسترسی Accessibility را فعال کن</strong>
+                        از داخل خود برنامه وارد مسیر
+                        <span class="code">System Settings → Privacy &amp; Security → Accessibility</span>
+                        شو و `Rast` را روشن کن.
+                      </div>
+                    </div>
+
+                    <div class="step">
+                      <div class="step-index">3</div>
+                      <div>
+                        <strong>متن را انتخاب کن و با پنجره شناور کار کن</strong>
+                        متن را در هر برنامه‌ای select کن، سپس از پنجره شناور یا منوبار برای نمایش RTL Pad استفاده کن.
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="info-card">
+                  <div class="card-label"><i></i>امکانات اصلی</div>
+                  <ul>
+                    <li>پنجره شناور شفاف و همیشه روی بقیه برنامه‌ها</li>
+                    <li>نمایش هوشمند خط‌های فارسی و انگلیسی با جهت مستقل</li>
+                    <li>ذخیره شدن اندازه پنجره بین اجراهای مختلف</li>
+                    <li>دکمه‌های سریع Copy و Paste</li>
+                    <li>منوی منوبار با دسترسی سریع به پنل و تنظیمات</li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h3>سوال‌های رایج</h3>
+                  <p>چند نکته مهم که معمولاً کاربرها موقع نصب و استفاده می‌پرسند.</p>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <h4>آیا برای استفاده نیاز به Xcode یا سورس‌کد دارم؟</h4>
+                <p>نه. اگر فقط می‌خواهی برنامه را استفاده کنی، DMG یا ZIP کافی است و هیچ نیازی به ساختن پروژه از سورس نداری.</p>
+              </div>
+
+              <div class="faq-item">
+                <h4>چرا برنامه Accessibility permission می‌خواهد؟</h4>
+                <p>برای اینکه بتواند متن انتخاب‌شده را از برنامه‌های دیگر بخواند و تجربه‌ای شبیه ابزارهای translate/popover ارائه دهد.</p>
+              </div>
+
+              <div class="faq-item">
+                <h4>اگر macOS اجازه اجرای برنامه را نداد چه کار کنم؟</h4>
+                <p>
+                  چون این یک utility شخصی است، ممکن است Gatekeeper روی بعضی سیستم‌ها هشدار بدهد. در صورت نیاز می‌توانی از
+                  <span class="code">Open Anyway</span> در تنظیمات امنیتی macOS استفاده کنی.
+                </p>
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <footer class="footer">
+          <div>Rast برای کاربران فارسی‌زبان macOS ساخته شده تا متن دوزبانه را ساده‌تر و حرفه‌ای‌تر مدیریت کنند.</div>
+          <div>
+            <a href="https://github.com/espitman/Rast">مشاهده مخزن</a>
+            <span style="opacity: 0.4"> · </span>
+            <a href="https://github.com/espitman/Rast/releases/latest">همه Releaseها</a>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <script>
+      const revealItems = [
+        ...document.querySelectorAll(
+          ".section-card, .section-head, .info-card, .download-card, .step, .faq-item, .footer"
+        ),
+      ];
+
+      const showAllRevealItems = () => {
+        revealItems.forEach((item) => item.classList.add("is-visible"));
+      };
+
+      try {
+        document.querySelectorAll(".grid-3, .grid-2, .downloads-grid, .steps").forEach((group) => {
+          [...group.children].forEach((item, index) => {
+            item.style.setProperty("--reveal-delay", `${Math.min(index * 110, 330)}ms`);
+          });
+        });
+
+        document.querySelectorAll(".faq-item").forEach((item, index) => {
+          item.style.setProperty("--reveal-delay", `${index * 90}ms`);
+        });
+
+        const footer = document.querySelector(".footer");
+        footer?.style.setProperty("--reveal-delay", "80ms");
+
+        if ("IntersectionObserver" in window) {
+          const revealObserver = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add("is-visible");
+                revealObserver.unobserve(entry.target);
+              });
+            },
+            {
+              threshold: 0.12,
+              rootMargin: "0px 0px 72px 0px",
+            }
+          );
+
+          revealItems.forEach((item) => revealObserver.observe(item));
+        } else {
+          showAllRevealItems();
+        }
+      } catch {
+        showAllRevealItems();
+      }
+    </script>
+  </body>
+</html>
