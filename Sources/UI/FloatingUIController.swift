@@ -15,6 +15,10 @@ final class FloatingUIController: NSObject, NSWindowDelegate {
     private var globalMouseMonitor: Any?
     private var localKeyMonitor: Any?
 
+    var isTextPanelVisible: Bool {
+        textPanel?.isVisible == true
+    }
+
     func showTrigger(for text: String) {
         let panel = triggerPanel ?? makeTriggerPanel()
         triggerPanel = panel

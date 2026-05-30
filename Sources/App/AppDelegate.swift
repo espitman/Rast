@@ -4,6 +4,10 @@ import Carbon
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private enum DefaultsKey {
+        static let autoOpenCopiedText = "rast.autoOpenCopiedText"
+    }
+
     private let selectionMonitor = SelectionMonitor()
     private let clipboardMonitor = ClipboardMonitor()
     private let selectionCopyService = SelectionCopyService()
@@ -31,12 +35,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.latestDetectedSelection = text
                 self.floatingUI.showTrigger(for: text)
             } else {
+                self.latestDetectedSelection = ""
                 self.floatingUI.hideTrigger()
             }
         }
 
         clipboardMonitor.onClipboardTextChanged = { [weak self] text in
-            self?.latestClipboardText = text
+            guard let self else { return }
+            self.latestClipboardText = text
+            guard UserDefaults.standard.bool(forKey: DefaultsKey.autoOpenCopiedText) else { return }
+            guard !self.floatingUI.isTextPanelVisible else { return }
+            self.floatingUI.showTextPanel(with: text)
         }
 
         selectionMonitor.start()
@@ -110,10 +119,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openFromCurrentSelection() {
         let direct = selectionMonitor.readCurrentSelection()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let cached = latestDetectedSelection.trimmingCharacters(in: .whitespacesAndNewlines)
-        let text = direct.isEmpty ? cached : direct
 
-        floatingUI.showTextPanel(with: text.isEmpty ? "متنی انتخاب نشده یا این برنامه اجازه خواندن Selection نمی‌دهد." : text)
+        floatingUI.showTextPanel(with: direct.isEmpty ? "متنی انتخاب نشده یا این برنامه اجازه خواندن Selection نمی‌دهد." : direct)
     }
 
     @objc private func openFromClipboard() {
@@ -138,12 +145,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let clipboardBeforeCopy = currentClipboardText()
-
-        let cachedSelection = latestDetectedSelection.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !cachedSelection.isEmpty {
-            floatingUI.showTextPanel(with: cachedSelection)
-            return
-        }
 
         selectionCopyService.captureSelectedText { [weak self] text in
             guard let self else { return }

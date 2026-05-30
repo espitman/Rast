@@ -89,6 +89,6 @@ final class GlobalShortcutMonitor {
         guard !event.isARepeat else { return false }
         guard event.keyCode == 15 else { return false } // R
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        return flags.contains(.control) && flags.contains(.option)
+        return flags.contains(.option) && (flags.contains(.command) || flags.contains(.control))
     }
 }

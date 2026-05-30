@@ -677,7 +677,12 @@ struct VisualEffectBlur: NSViewRepresentable {
 }
 
 struct MenuBarView: View {
+    private enum DefaultsKey {
+        static let autoOpenCopiedText = "rast.autoOpenCopiedText"
+    }
+
     @State private var isAccessibilityEnabled: Bool = AccessibilityPermissionHelper.isTrusted()
+    @AppStorage(DefaultsKey.autoOpenCopiedText) private var autoOpenCopiedText = false
     
     var onOpenRTLPad: () -> Void
     var onCheckAccessibility: () -> Void
@@ -720,6 +725,8 @@ struct MenuBarView: View {
                 shortcutPill
 
                 VStack(spacing: 14) {
+                    autoOpenCard
+
                     actionCard(
                         title: "Open RTL Pad",
                         subtitle: "Compose, clean up, and copy bidirectional text.",
@@ -832,7 +839,7 @@ struct MenuBarView: View {
 
             Spacer(minLength: 0)
 
-            Text("⌃⌥R")
+            Text("⌘⌥R")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.78))
         }
@@ -847,6 +854,81 @@ struct MenuBarView: View {
                 )
         )
         .padding(.horizontal, 18)
+    }
+
+    private var autoOpenCard: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                autoOpenCopiedText.toggle()
+            }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(red: 0.55, green: 0.42, blue: 1.0).opacity(0.16))
+                    Image(systemName: "doc.on.clipboard")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.65, green: 0.78, blue: 1.0))
+                }
+                .frame(width: 42, height: 42)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Auto-open copied text")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+
+                    Text(autoOpenCopiedText ? "Copied text opens in RTL Pad instantly." : "Keep copied text in clipboard only.")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.42))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 8)
+
+                toggleSwitch(isOn: autoOpenCopiedText)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(autoOpenCopiedText ? Color.white.opacity(0.07) : Color.white.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(
+                                autoOpenCopiedText
+                                    ? Color(red: 0.45, green: 0.66, blue: 1.0).opacity(0.34)
+                                    : Color.white.opacity(0.08),
+                                lineWidth: 1
+                            )
+                    )
+            )
+        }
+        .buttonStyle(SimpleHoverButtonStyle(opacityDelta: 0.04, scale: 0.992))
+    }
+
+    private func toggleSwitch(isOn: Bool) -> some View {
+        ZStack(alignment: isOn ? .trailing : .leading) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    isOn
+                        ? Color(red: 0.24, green: 0.48, blue: 1.0)
+                        : Color.white.opacity(0.13)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(isOn ? 0.18 : 0.1), lineWidth: 1)
+                )
+
+            Circle()
+                .fill(.white)
+                .frame(width: 20, height: 20)
+                .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
+                .padding(3)
+        }
+        .frame(width: 46, height: 26)
+        .accessibilityLabel("Auto-open copied text")
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 
     private func actionCard(
