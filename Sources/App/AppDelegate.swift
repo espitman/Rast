@@ -138,16 +138,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let clipboardBeforeCopy = currentClipboardText()
-        if !clipboardBeforeCopy.isEmpty {
-            latestClipboardText = clipboardBeforeCopy
-            floatingUI.showTextPanel(with: clipboardBeforeCopy)
+
+        let cachedSelection = latestDetectedSelection.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cachedSelection.isEmpty {
+            floatingUI.showTextPanel(with: cachedSelection)
             return
         }
-        
+
         selectionCopyService.captureSelectedText { [weak self] text in
             guard let self else { return }
             let capturedText = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let clipboardFallback = self.currentClipboardText()
+            let clipboardFallback = clipboardBeforeCopy.isEmpty ? self.currentClipboardText() : clipboardBeforeCopy
             let finalText = [capturedText, clipboardFallback, self.latestClipboardText]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .first { !$0.isEmpty } ?? ""
