@@ -91,18 +91,33 @@ struct BidirectionalTextEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
+        let scrollView = NSScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.borderType = .noBorder
         scrollView.autohidesScrollers = true
+        scrollView.autoresizingMask = [.width, .height]
 
-        guard let textView = scrollView.documentView as? NSTextView else {
-            return scrollView
-        }
+        let textStorage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(containerSize: NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = true
+        textContainer.lineFragmentPadding = 0
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+
+        let textView = CodeBlockTextView(frame: .zero, textContainer: textContainer)
+        textView.minSize = NSSize(width: 0, height: scrollView.contentSize.height)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        scrollView.documentView = textView
 
         textView.delegate = context.coordinator
+        textView.isEditable = true
+        textView.isSelectable = true
         textView.drawsBackground = false
         textView.isRichText = false
         textView.importsGraphics = false
@@ -158,13 +173,19 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             defer { isApplyingStyle = false }
 
             let selectedRanges = preserveSelection ? textView.selectedRanges : []
-            let fullRange = NSRange(location: 0, length: (text as NSString).length)
+            let renderedText = Self.renderedMarkdownText(from: text)
+            let fullRange = NSRange(location: 0, length: (renderedText.string as NSString).length)
             let storage = textView.textStorage
 
-            storage?.beginEditing()
-            storage?.removeAttribute(.paragraphStyle, range: fullRange)
+            if textView.string != renderedText.string {
+                textView.string = renderedText.string
+            }
+            (textView as? CodeBlockTextView)?.codeBlockRanges = renderedText.codeRanges
 
-            let nsText = text as NSString
+            storage?.beginEditing()
+            storage?.setAttributes(Self.baseAttributes(), range: fullRange)
+
+            let nsText = renderedText.string as NSString
             nsText.enumerateSubstrings(in: NSRange(location: 0, length: nsText.length), options: [.byParagraphs, .substringNotRequired]) { _, paragraphRange, _, _ in
                 let lineText = nsText.substring(with: paragraphRange)
                 let isRTL = Self.shouldRenderRTL(lineText)
@@ -176,10 +197,158 @@ struct BidirectionalTextEditor: NSViewRepresentable {
 
                 storage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: paragraphRange)
             }
+            Self.applyMarkdownStyling(to: storage, renderedText: renderedText, fullRange: fullRange)
             storage?.endEditing()
 
             if preserveSelection, !selectedRanges.isEmpty {
                 textView.selectedRanges = selectedRanges
+            }
+        }
+
+        private static func baseAttributes() -> [NSAttributedString.Key: Any] {
+            [
+                .font: NSFont(name: "Vazirmatn-Regular", size: 16) ?? .systemFont(ofSize: 16),
+                .foregroundColor: NSColor.labelColor
+            ]
+        }
+
+        private struct RenderedMarkdownText {
+            var string: String
+            var boldRanges: [NSRange]
+            var codeRanges: [NSRange]
+            var inlineCodeRanges: [NSRange]
+        }
+
+        private static func renderedMarkdownText(from rawText: String) -> RenderedMarkdownText {
+            var output = ""
+            var boldRanges: [NSRange] = []
+            var codeRanges: [NSRange] = []
+            var inlineCodeRanges: [NSRange] = []
+            var index = rawText.startIndex
+            var isInCodeBlock = false
+            var codeStart: Int?
+            var isInInlineCode = false
+            var inlineCodeStart: Int?
+            var isInBold = false
+            var boldStart: Int?
+
+            while index < rawText.endIndex {
+                if rawText[index...].hasPrefix("```") {
+                    if isInCodeBlock, let start = codeStart {
+                        codeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+                        codeStart = nil
+                    } else {
+                        codeStart = (output as NSString).length
+                    }
+                    isInCodeBlock.toggle()
+                    index = rawText.index(index, offsetBy: 3)
+
+                    if index < rawText.endIndex, rawText[index].isNewline {
+                        index = rawText.index(after: index)
+                    }
+                    continue
+                }
+
+                if !isInCodeBlock, rawText[index] == "`" {
+                    if isInInlineCode, let start = inlineCodeStart {
+                        inlineCodeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+                        inlineCodeStart = nil
+                    } else {
+                        inlineCodeStart = (output as NSString).length
+                    }
+                    isInInlineCode.toggle()
+                    index = rawText.index(after: index)
+                    continue
+                }
+
+                if !isInCodeBlock, !isInInlineCode, rawText[index...].hasPrefix("**") {
+                    if isInBold, let start = boldStart {
+                        boldRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+                        boldStart = nil
+                    } else {
+                        boldStart = (output as NSString).length
+                    }
+                    isInBold.toggle()
+                    index = rawText.index(index, offsetBy: 2)
+                    continue
+                }
+
+                output.append(rawText[index])
+                index = rawText.index(after: index)
+            }
+
+            if let start = codeStart {
+                codeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+            }
+            if let start = inlineCodeStart {
+                inlineCodeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+            }
+            if let start = boldStart {
+                boldRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+            }
+
+            return RenderedMarkdownText(
+                string: output,
+                boldRanges: boldRanges,
+                codeRanges: codeRanges,
+                inlineCodeRanges: inlineCodeRanges
+            )
+        }
+
+        private static func applyMarkdownStyling(to storage: NSTextStorage?, renderedText: RenderedMarkdownText, fullRange: NSRange) {
+            guard let storage, fullRange.length > 0 else { return }
+            applyBoldStyling(to: storage, ranges: renderedText.boldRanges)
+            applyInlineCodeStyling(to: storage, ranges: renderedText.inlineCodeRanges)
+            applyCodeBlockStyling(to: storage, text: renderedText.string as NSString, ranges: renderedText.codeRanges)
+        }
+
+        private static func applyBoldStyling(to storage: NSTextStorage, ranges: [NSRange]) {
+            let boldFont = NSFont(name: "Vazirmatn-Bold", size: 16) ?? .boldSystemFont(ofSize: 16)
+
+            ranges.forEach { range in
+                guard range.length > 0 else { return }
+                storage.addAttribute(.font, value: boldFont, range: range)
+            }
+        }
+
+        private static func applyInlineCodeStyling(to storage: NSTextStorage, ranges: [NSRange]) {
+            let codeFont = NSFont.monospacedSystemFont(ofSize: 15, weight: .regular)
+            let codeBackground = NSColor(calibratedWhite: 0.24, alpha: 1)
+            let codeColor = NSColor(calibratedWhite: 0.96, alpha: 1)
+
+            ranges.forEach { range in
+                guard range.length > 0 else { return }
+                storage.addAttributes([
+                    .font: codeFont,
+                    .foregroundColor: codeColor,
+                    .backgroundColor: codeBackground
+                ], range: range)
+            }
+        }
+
+        private static func applyCodeBlockStyling(to storage: NSTextStorage, text: NSString, ranges: [NSRange]) {
+            let codeFont = NSFont.monospacedSystemFont(ofSize: 15, weight: .regular)
+            let codeColor = NSColor(calibratedWhite: 0.92, alpha: 1)
+
+            ranges.forEach { range in
+                guard range.length > 0 else { return }
+                let paragraphRange = text.paragraphRange(for: range)
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.alignment = .left
+                paragraphStyle.baseWritingDirection = .leftToRight
+                paragraphStyle.lineSpacing = 4
+                paragraphStyle.paragraphSpacing = 8
+                paragraphStyle.headIndent = 12
+                paragraphStyle.firstLineHeadIndent = 12
+                paragraphStyle.tailIndent = -12
+
+                storage.addAttributes([
+                    .font: codeFont,
+                    .foregroundColor: codeColor,
+                    .paragraphStyle: paragraphStyle
+                ], range: range)
+
+                storage.addAttribute(.paragraphStyle, value: paragraphStyle, range: paragraphRange)
             }
         }
 
@@ -192,6 +361,51 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                     return false
                 }
             }
+        }
+    }
+}
+
+final class CodeBlockTextView: NSTextView {
+    var codeBlockRanges: [NSRange] = [] {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
+    override func drawBackground(in rect: NSRect) {
+        drawCodeBlockBackgrounds(in: rect)
+        super.drawBackground(in: rect)
+    }
+
+    private func drawCodeBlockBackgrounds(in dirtyRect: NSRect) {
+        guard
+            !codeBlockRanges.isEmpty,
+            let layoutManager,
+            let textContainer
+        else { return }
+
+        let textOrigin = textContainerOrigin
+        let horizontalInset: CGFloat = 8
+        let verticalInset: CGFloat = 10
+        let blockColor = NSColor(calibratedWhite: 0.16, alpha: 1)
+
+        for characterRange in codeBlockRanges where characterRange.length > 0 {
+            let glyphRange = layoutManager.glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
+            guard glyphRange.length > 0 else { continue }
+
+            layoutManager.ensureLayout(for: textContainer)
+            let usedRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+            let blockRect = NSRect(
+                x: horizontalInset,
+                y: textOrigin.y + usedRect.minY - verticalInset,
+                width: bounds.width - (horizontalInset * 2),
+                height: usedRect.height + (verticalInset * 2)
+            )
+
+            guard blockRect.intersects(dirtyRect) else { continue }
+
+            blockColor.setFill()
+            NSBezierPath(roundedRect: blockRect, xRadius: 12, yRadius: 12).fill()
         }
     }
 }

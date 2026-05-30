@@ -117,9 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openFromClipboard() {
-        let pasted = NSPasteboard.general.string(forType: .string)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let text = pasted.isEmpty ? latestClipboardText : pasted
+        let pasted = currentClipboardText()
+        let text = pasted.isEmpty ? latestClipboardText.trimmingCharacters(in: .whitespacesAndNewlines) : pasted
         floatingUI.showTextPanel(with: text.isEmpty ? "متنی در Clipboard نیست." : text)
     }
 
@@ -137,19 +136,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.floatingUI.showTextPanel(with: directText.trimmingCharacters(in: .whitespacesAndNewlines))
             return
         }
+
+        let clipboardBeforeCopy = currentClipboardText()
+        if !clipboardBeforeCopy.isEmpty {
+            latestClipboardText = clipboardBeforeCopy
+            floatingUI.showTextPanel(with: clipboardBeforeCopy)
+            return
+        }
         
         selectionCopyService.captureSelectedText { [weak self] text in
             guard let self else { return }
-            let finalText = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let capturedText = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let clipboardFallback = self.currentClipboardText()
+            let finalText = [capturedText, clipboardFallback, self.latestClipboardText]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty } ?? ""
             
             DispatchQueue.main.async {
                 if finalText.isEmpty {
-                    self.floatingUI.showTextPanel(with: "متنی پیدا نشد. مطمئن شوید برنامه Rast در لیست Accessibility فعال است.")
+                    self.floatingUI.showTextPanel(with: "متنی پیدا نشد. مطمئن شوید متن انتخاب شده یا Clipboard خالی نیست.")
                 } else {
+                    self.latestClipboardText = finalText
                     self.floatingUI.showTextPanel(with: finalText)
                 }
             }
         }
+    }
+
+    private func currentClipboardText() -> String {
+        NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     @objc private func quitApp() {
