@@ -167,6 +167,12 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             applyDirectionStyling(to: textView, text: latestText, preserveSelection: true)
         }
 
+        func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+            guard let url = link as? URL else { return false }
+            NSWorkspace.shared.open(url)
+            return true
+        }
+
         func applyDirectionStyling(to textView: NSTextView, text: String, preserveSelection: Bool) {
             guard !isApplyingStyle else { return }
             isApplyingStyle = true
@@ -213,10 +219,16 @@ struct BidirectionalTextEditor: NSViewRepresentable {
         }
 
         private struct RenderedMarkdownText {
+            struct LinkRange {
+                var range: NSRange
+                var target: String
+            }
+
             var string: String
             var boldRanges: [NSRange]
             var codeRanges: [NSRange]
             var inlineCodeRanges: [NSRange]
+            var linkRanges: [LinkRange]
         }
 
         private static func renderedMarkdownText(from rawText: String) -> RenderedMarkdownText {
@@ -224,6 +236,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             var boldRanges: [NSRange] = []
             var codeRanges: [NSRange] = []
             var inlineCodeRanges: [NSRange] = []
+            var linkRanges: [RenderedMarkdownText.LinkRange] = []
             var index = rawText.startIndex
             var isInCodeBlock = false
             var codeStart: Int?
@@ -233,6 +246,15 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             var boldStart: Int?
 
             while index < rawText.endIndex {
+                if isInvisibleMarkdownControl(rawText[index]) {
+                    let visibleIndex = firstVisibleIndex(startingAt: index, in: rawText)
+                    if visibleIndex < rawText.endIndex,
+                       rawText[visibleIndex] == "[" || rawText[visibleIndex] == "(" {
+                        index = visibleIndex
+                        continue
+                    }
+                }
+
                 if rawText[index...].hasPrefix("```") {
                     if isInCodeBlock, let start = codeStart {
                         codeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
@@ -246,6 +268,22 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                     if index < rawText.endIndex, rawText[index].isNewline {
                         index = rawText.index(after: index)
                     }
+                    continue
+                }
+
+                if !isInCodeBlock,
+                   !isInInlineCode,
+                   let link = markdownLink(at: index, in: rawText) ?? reversedMarkdownLink(at: index, in: rawText) {
+                    let start = (output as NSString).length
+                    output.append(link.label)
+                    let length = (link.label as NSString).length
+                    if length > 0 {
+                        linkRanges.append(RenderedMarkdownText.LinkRange(
+                            range: NSRange(location: start, length: length),
+                            target: link.target
+                        ))
+                    }
+                    index = link.nextIndex
                     continue
                 }
 
@@ -291,14 +329,80 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 string: output,
                 boldRanges: boldRanges,
                 codeRanges: codeRanges,
-                inlineCodeRanges: inlineCodeRanges
+                inlineCodeRanges: inlineCodeRanges,
+                linkRanges: linkRanges
             )
+        }
+
+        private static func markdownLink(at index: String.Index, in text: String) -> (label: String, target: String, nextIndex: String.Index)? {
+            guard text[index] == "[" else { return nil }
+            guard let labelEnd = text[index...].firstIndex(of: "]") else { return nil }
+            let openParen = firstVisibleIndex(after: labelEnd, in: text)
+            guard openParen < text.endIndex, text[openParen] == "(" else { return nil }
+            guard let targetEnd = text[openParen...].firstIndex(of: ")") else { return nil }
+
+            let labelStart = text.index(after: index)
+            let targetStart = text.index(after: openParen)
+            let label = String(text[labelStart..<labelEnd])
+            let target = String(text[targetStart..<targetEnd])
+            return (label, target, text.index(after: targetEnd))
+        }
+
+        private static func reversedMarkdownLink(at index: String.Index, in text: String) -> (label: String, target: String, nextIndex: String.Index)? {
+            guard text[index] == "(" else { return nil }
+            guard let targetEnd = text[index...].firstIndex(of: ")") else { return nil }
+            let openBracket = firstVisibleIndex(after: targetEnd, in: text)
+            guard openBracket < text.endIndex, text[openBracket] == "[" else { return nil }
+            guard let labelEnd = text[openBracket...].firstIndex(of: "]") else { return nil }
+
+            let targetStart = text.index(after: index)
+            let labelStart = text.index(after: openBracket)
+            let label = String(text[labelStart..<labelEnd])
+            let target = String(text[targetStart..<targetEnd])
+            return (label, target, text.index(after: labelEnd))
+        }
+
+        private static func firstVisibleIndex(after index: String.Index, in text: String) -> String.Index {
+            var cursor = text.index(after: index)
+            while cursor < text.endIndex, isIgnorableMarkdownSpacer(text[cursor]) {
+                cursor = text.index(after: cursor)
+            }
+            return cursor
+        }
+
+        private static func firstVisibleIndex(startingAt index: String.Index, in text: String) -> String.Index {
+            var cursor = index
+            while cursor < text.endIndex, isInvisibleMarkdownControl(text[cursor]) {
+                cursor = text.index(after: cursor)
+            }
+            return cursor
+        }
+
+        private static func isIgnorableMarkdownSpacer(_ character: Character) -> Bool {
+            isInvisibleMarkdownControl(character) || character.unicodeScalars.allSatisfy {
+                CharacterSet.whitespacesAndNewlines.contains($0)
+            }
+        }
+
+        private static func isInvisibleMarkdownControl(_ character: Character) -> Bool {
+            character.unicodeScalars.allSatisfy { scalar in
+                scalar.value == 0x200B
+                    || scalar.value == 0x200C
+                    || scalar.value == 0x200D
+                    || scalar.value == 0xFEFF
+                    || scalar.value == 0x061C
+                    || scalar.value == 0x200E
+                    || scalar.value == 0x200F
+                    || (0x202A...0x202E).contains(scalar.value)
+                    || (0x2066...0x2069).contains(scalar.value)
+            }
         }
 
         private static func applyMarkdownStyling(to storage: NSTextStorage?, renderedText: RenderedMarkdownText, fullRange: NSRange) {
             guard let storage, fullRange.length > 0 else { return }
             applyBoldStyling(to: storage, ranges: renderedText.boldRanges)
             applyInlineCodeStyling(to: storage, ranges: renderedText.inlineCodeRanges)
+            applyLinkStyling(to: storage, links: renderedText.linkRanges)
             applyCodeBlockStyling(to: storage, text: renderedText.string as NSString, ranges: renderedText.codeRanges)
         }
 
@@ -324,6 +428,30 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                     .backgroundColor: codeBackground
                 ], range: range)
             }
+        }
+
+        private static func applyLinkStyling(to storage: NSTextStorage, links: [RenderedMarkdownText.LinkRange]) {
+            links.forEach { link in
+                guard link.range.length > 0, let url = url(forMarkdownTarget: link.target) else { return }
+                storage.addAttributes([
+                    .link: url,
+                    .foregroundColor: NSColor.systemBlue,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue
+                ], range: link.range)
+            }
+        }
+
+        private static func url(forMarkdownTarget target: String) -> URL? {
+            if let url = URL(string: target), url.scheme != nil {
+                return url
+            }
+
+            var fileTarget = target
+            if let match = fileTarget.range(of: #":\d+$"#, options: .regularExpression) {
+                fileTarget.removeSubrange(match)
+            }
+
+            return URL(fileURLWithPath: fileTarget)
         }
 
         private static func applyCodeBlockStyling(to storage: NSTextStorage, text: NSString, ranges: [NSRange]) {
@@ -375,6 +503,80 @@ final class CodeBlockTextView: NSTextView {
     override func drawBackground(in rect: NSRect) {
         drawCodeBlockBackgrounds(in: rect)
         super.drawBackground(in: rect)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let isCopyShortcut = event.keyCode == 8
+            && (event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control))
+
+        if isCopyShortcut {
+            copy(nil)
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let isCommandCopy = event.keyCode == 8 && event.modifierFlags.contains(.command)
+        if isCommandCopy {
+            copy(nil)
+            return true
+        }
+
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if openLink(at: event.locationInWindow) {
+            return
+        }
+
+        super.mouseDown(with: event)
+    }
+
+    override func copy(_ sender: Any?) {
+        copySelectedTextToPasteboard()
+    }
+
+    private func copySelectedTextToPasteboard() {
+        let selectedText = selectedRanges
+            .compactMap { $0.rangeValue }
+            .filter { $0.length > 0 }
+            .map { (string as NSString).substring(with: $0) }
+            .joined(separator: "\n")
+
+        guard !selectedText.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(selectedText, forType: .string)
+    }
+
+    private func openLink(at windowPoint: NSPoint) -> Bool {
+        guard
+            let layoutManager,
+            let textContainer,
+            let textStorage
+        else { return false }
+
+        let point = convert(windowPoint, from: nil)
+        let containerPoint = NSPoint(
+            x: point.x - textContainerOrigin.x,
+            y: point.y - textContainerOrigin.y
+        )
+        guard textContainer.containerSize.width > 0, textContainer.containerSize.height > 0 else {
+            return false
+        }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = layoutManager.glyphIndex(for: containerPoint, in: textContainer)
+        let characterIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
+        guard characterIndex >= 0, characterIndex < textStorage.length else { return false }
+        guard let url = textStorage.attribute(.link, at: characterIndex, effectiveRange: nil) as? URL else {
+            return false
+        }
+
+        NSWorkspace.shared.open(url)
+        return true
     }
 
     private func drawCodeBlockBackgrounds(in dirtyRect: NSRect) {

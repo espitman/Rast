@@ -125,8 +125,40 @@ final class FloatingUIController: NSObject, NSWindowDelegate {
                 self.closeTextPanel()
                 return nil
             }
+            if event.keyCode == 8, event.modifierFlags.contains(.command) {
+                if self.copyFromVisibleTextPanel() {
+                    return nil
+                }
+                return nil
+            }
             return event
         }
+    }
+
+    private func copyFromVisibleTextPanel() -> Bool {
+        guard
+            let textPanel,
+            textPanel.isVisible,
+            let contentView = textPanel.contentView,
+            let textView = firstTextView(in: contentView)
+        else { return false }
+
+        textView.copy(nil)
+        return true
+    }
+
+    private func firstTextView(in view: NSView) -> NSTextView? {
+        if let textView = view as? NSTextView {
+            return textView
+        }
+
+        for subview in view.subviews {
+            if let textView = firstTextView(in: subview) {
+                return textView
+            }
+        }
+
+        return nil
     }
 
     private func removeDismissMonitors() {
