@@ -187,6 +187,9 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 textView.string = renderedText.string
             }
             (textView as? CodeBlockTextView)?.codeBlockRanges = renderedText.codeRanges
+            (textView as? CodeBlockTextView)?.mermaidDiagrams = renderedText.mermaidDiagrams.map {
+                CodeBlockTextView.MermaidDiagram(range: $0.range, nodes: $0.nodes)
+            }
 
             storage?.beginEditing()
             storage?.setAttributes(Self.baseAttributes(), range: fullRange)
@@ -224,11 +227,17 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 var target: String
             }
 
+            struct MermaidDiagram {
+                var range: NSRange
+                var nodes: [String]
+            }
+
             var string: String
             var boldRanges: [NSRange]
             var codeRanges: [NSRange]
             var inlineCodeRanges: [NSRange]
             var linkRanges: [LinkRange]
+            var mermaidDiagrams: [MermaidDiagram]
         }
 
         private static func renderedMarkdownText(from rawText: String) -> RenderedMarkdownText {
@@ -237,6 +246,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             var codeRanges: [NSRange] = []
             var inlineCodeRanges: [NSRange] = []
             var linkRanges: [RenderedMarkdownText.LinkRange] = []
+            var mermaidDiagrams: [RenderedMarkdownText.MermaidDiagram] = []
             var index = rawText.startIndex
             var isInCodeBlock = false
             var codeStart: Int?
@@ -257,7 +267,17 @@ struct BidirectionalTextEditor: NSViewRepresentable {
 
                 if rawText[index...].hasPrefix("```") {
                     if isInCodeBlock, let start = codeStart {
-                        codeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+                        let currentLength = (output as NSString).length
+                        let blockRange = NSRange(location: start, length: currentLength - start)
+                        if let mermaid = mermaidDiagram(in: output, range: blockRange) {
+                            output = (output as NSString).replacingCharacters(in: blockRange, with: mermaidPlaceholder)
+                            mermaidDiagrams.append(RenderedMarkdownText.MermaidDiagram(
+                                range: NSRange(location: start, length: (mermaidPlaceholder as NSString).length),
+                                nodes: mermaid
+                            ))
+                        } else {
+                            codeRanges.append(blockRange)
+                        }
                         codeStart = nil
                     } else {
                         codeStart = (output as NSString).length
@@ -316,7 +336,16 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             }
 
             if let start = codeStart {
-                codeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
+                let blockRange = NSRange(location: start, length: (output as NSString).length - start)
+                if let mermaid = mermaidDiagram(in: output, range: blockRange) {
+                    output = (output as NSString).replacingCharacters(in: blockRange, with: mermaidPlaceholder)
+                    mermaidDiagrams.append(RenderedMarkdownText.MermaidDiagram(
+                        range: NSRange(location: start, length: (mermaidPlaceholder as NSString).length),
+                        nodes: mermaid
+                    ))
+                } else {
+                    codeRanges.append(blockRange)
+                }
             }
             if let start = inlineCodeStart {
                 inlineCodeRanges.append(NSRange(location: start, length: (output as NSString).length - start))
@@ -330,8 +359,44 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 boldRanges: boldRanges,
                 codeRanges: codeRanges,
                 inlineCodeRanges: inlineCodeRanges,
-                linkRanges: linkRanges
+                linkRanges: linkRanges,
+                mermaidDiagrams: mermaidDiagrams
             )
+        }
+
+        private static let mermaidPlaceholder = "\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n"
+
+        private static func mermaidDiagram(in output: String, range: NSRange) -> [String]? {
+            let block = (output as NSString).substring(with: range)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let content: String
+            if block.lowercased().hasPrefix("mermaid") {
+                content = String(block.dropFirst("mermaid".count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                content = block
+            }
+
+            guard content.lowercased().hasPrefix("flowchart lr") else { return nil }
+
+            let pattern = #"[A-Za-z0-9_]+\["([^"]+)"\]"#
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+            let nsContent = content as NSString
+            let matches = regex.matches(in: content, range: NSRange(location: 0, length: nsContent.length))
+
+            var seen = Set<String>()
+            let nodes = matches.compactMap { match -> String? in
+                guard match.numberOfRanges > 1 else { return nil }
+                let label = nsContent.substring(with: match.range(at: 1))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !label.isEmpty, !seen.contains(label) else { return nil }
+                seen.insert(label)
+                return label
+            }
+
+            guard nodes.count >= 2 else { return nil }
+            return nodes
         }
 
         private static func markdownLink(at index: String.Index, in text: String) -> (label: String, target: String, nextIndex: String.Index)? {
@@ -404,6 +469,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             applyInlineCodeStyling(to: storage, ranges: renderedText.inlineCodeRanges)
             applyLinkStyling(to: storage, links: renderedText.linkRanges)
             applyCodeBlockStyling(to: storage, text: renderedText.string as NSString, ranges: renderedText.codeRanges)
+            applyMermaidStyling(to: storage, ranges: renderedText.mermaidDiagrams.map(\.range))
         }
 
         private static func applyBoldStyling(to storage: NSTextStorage, ranges: [NSRange]) {
@@ -480,6 +546,24 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             }
         }
 
+        private static func applyMermaidStyling(to storage: NSTextStorage, ranges: [NSRange]) {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .left
+            paragraphStyle.baseWritingDirection = .leftToRight
+            paragraphStyle.minimumLineHeight = 24
+            paragraphStyle.maximumLineHeight = 24
+            paragraphStyle.paragraphSpacing = 10
+
+            ranges.forEach { range in
+                guard range.length > 0 else { return }
+                storage.addAttributes([
+                    .font: NSFont.monospacedSystemFont(ofSize: 18, weight: .regular),
+                    .foregroundColor: NSColor.clear,
+                    .paragraphStyle: paragraphStyle
+                ], range: range)
+            }
+        }
+
         private static func shouldRenderRTL(_ text: String) -> Bool {
             text.unicodeScalars.contains { scalar in
                 switch scalar.value {
@@ -494,10 +578,27 @@ struct BidirectionalTextEditor: NSViewRepresentable {
 }
 
 final class CodeBlockTextView: NSTextView {
+    struct MermaidDiagram {
+        var range: NSRange
+        var nodes: [String]
+    }
+
     var codeBlockRanges: [NSRange] = [] {
         didSet {
             needsDisplay = true
         }
+    }
+
+    var mermaidDiagrams: [MermaidDiagram] = [] {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    private var mermaidScrollOffsets: [Int: CGFloat] = [:]
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        drawMermaidDiagrams(in: dirtyRect)
     }
 
     override func drawBackground(in rect: NSRect) {
@@ -533,6 +634,14 @@ final class CodeBlockTextView: NSTextView {
         }
 
         super.mouseDown(with: event)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        if scrollMermaidDiagram(with: event) {
+            return
+        }
+
+        super.scrollWheel(with: event)
     }
 
     override func copy(_ sender: Any?) {
@@ -608,6 +717,203 @@ final class CodeBlockTextView: NSTextView {
 
             blockColor.setFill()
             NSBezierPath(roundedRect: blockRect, xRadius: 12, yRadius: 12).fill()
+        }
+    }
+
+    private func drawMermaidDiagrams(in dirtyRect: NSRect) {
+        guard
+            !mermaidDiagrams.isEmpty,
+            let layoutManager,
+            let textContainer
+        else { return }
+
+        layoutManager.ensureLayout(for: textContainer)
+
+        for diagram in mermaidDiagrams where diagram.range.length > 0 && diagram.nodes.count >= 2 {
+            guard let containerRect = mermaidContainerRect(for: diagram, layoutManager: layoutManager, textContainer: textContainer) else {
+                continue
+            }
+
+            guard containerRect.intersects(dirtyRect) else { continue }
+            drawMermaidContainer(in: containerRect)
+            drawMermaidNodes(
+                diagram.nodes,
+                in: containerRect,
+                scrollOffset: mermaidScrollOffsets[diagram.range.location] ?? 0
+            )
+        }
+    }
+
+    private func mermaidContainerRect(
+        for diagram: MermaidDiagram,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer
+    ) -> NSRect? {
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: diagram.range, actualCharacterRange: nil)
+        guard glyphRange.length > 0 else { return nil }
+
+        let usedRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        let textOrigin = textContainerOrigin
+        return NSRect(
+            x: 8,
+            y: textOrigin.y + usedRect.minY - 8,
+            width: max(120, bounds.width - 16),
+            height: max(116, usedRect.height + 16)
+        )
+    }
+
+    private func drawMermaidContainer(in rect: NSRect) {
+        let path = NSBezierPath(roundedRect: rect, xRadius: 14, yRadius: 14)
+        NSColor(calibratedWhite: 0.10, alpha: 0.72).setFill()
+        path.fill()
+        NSColor(calibratedWhite: 0.24, alpha: 0.9).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+
+    private func drawMermaidNodes(_ nodes: [String], in containerRect: NSRect, scrollOffset: CGFloat) {
+        let gap: CGFloat = 28
+        let nodeWidth: CGFloat = 170
+        let contentWidth = preferredMermaidWidth(forNodeCount: nodes.count)
+        let startX = containerRect.minX + 40 - scrollOffset
+        let nodeHeight: CGFloat = 62
+        let nodeY = containerRect.midY - nodeHeight / 2
+
+        NSGraphicsContext.current?.saveGraphicsState()
+        NSBezierPath(roundedRect: containerRect.insetBy(dx: 1, dy: 1), xRadius: 13, yRadius: 13).setClip()
+
+        var nodeRects: [NSRect] = []
+        for (index, label) in nodes.enumerated() {
+            let rect = NSRect(
+                x: startX + CGFloat(index) * (nodeWidth + gap),
+                y: nodeY,
+                width: nodeWidth,
+                height: nodeHeight
+            )
+            nodeRects.append(rect)
+            drawMermaidNode(label, in: rect)
+        }
+
+        for index in 0..<(nodeRects.count - 1) {
+            drawMermaidArrow(from: nodeRects[index], to: nodeRects[index + 1])
+        }
+
+        if contentWidth > containerRect.width {
+            drawMermaidScrollHint(in: containerRect, contentWidth: contentWidth, scrollOffset: scrollOffset)
+        }
+
+        NSGraphicsContext.current?.restoreGraphicsState()
+    }
+
+    private func preferredMermaidWidth(forNodeCount count: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+        let nodeWidth: CGFloat = 170
+        let gap: CGFloat = 28
+        let padding: CGFloat = 80
+        return CGFloat(count) * nodeWidth + CGFloat(max(0, count - 1)) * gap + padding
+    }
+
+    private func scrollMermaidDiagram(with event: NSEvent) -> Bool {
+        guard
+            !mermaidDiagrams.isEmpty,
+            let layoutManager,
+            let textContainer
+        else { return false }
+
+        layoutManager.ensureLayout(for: textContainer)
+
+        let point = convert(event.locationInWindow, from: nil)
+        guard let diagram = mermaidDiagrams.first(where: { diagram in
+            guard let rect = mermaidContainerRect(for: diagram, layoutManager: layoutManager, textContainer: textContainer) else {
+                return false
+            }
+            return rect.contains(point)
+        }) else { return false }
+
+        let contentWidth = preferredMermaidWidth(forNodeCount: diagram.nodes.count)
+        guard
+            let containerRect = mermaidContainerRect(for: diagram, layoutManager: layoutManager, textContainer: textContainer),
+            contentWidth > containerRect.width
+        else { return false }
+
+        let horizontalDelta = event.scrollingDeltaX != 0
+            ? event.scrollingDeltaX
+            : (event.modifierFlags.contains(.shift) ? event.scrollingDeltaY : 0)
+        guard abs(horizontalDelta) > 0 else { return false }
+
+        let key = diagram.range.location
+        let maxOffset = max(0, contentWidth - containerRect.width)
+        let currentOffset = mermaidScrollOffsets[key] ?? 0
+        let nextOffset = min(maxOffset, max(0, currentOffset + horizontalDelta))
+        mermaidScrollOffsets[key] = nextOffset
+        needsDisplay = true
+        return true
+    }
+
+    private func drawMermaidScrollHint(in rect: NSRect, contentWidth: CGFloat, scrollOffset: CGFloat) {
+        let trackWidth = max(40, rect.width - 56)
+        let trackRect = NSRect(x: rect.minX + 28, y: rect.minY + 10, width: trackWidth, height: 3)
+        let thumbWidth = max(24, trackWidth * min(1, rect.width / contentWidth))
+        let maxOffset = max(1, contentWidth - rect.width)
+        let thumbX = trackRect.minX + (trackWidth - thumbWidth) * min(1, max(0, scrollOffset / maxOffset))
+
+        NSColor(calibratedWhite: 1, alpha: 0.08).setFill()
+        NSBezierPath(roundedRect: trackRect, xRadius: 1.5, yRadius: 1.5).fill()
+
+        NSColor(calibratedWhite: 1, alpha: 0.28).setFill()
+        NSBezierPath(
+            roundedRect: NSRect(x: thumbX, y: trackRect.minY, width: thumbWidth, height: trackRect.height),
+            xRadius: 1.5,
+            yRadius: 1.5
+        ).fill()
+    }
+
+    private func drawMermaidNode(_ label: String, in rect: NSRect) {
+        let path = NSBezierPath(rect: rect)
+        NSColor(calibratedWhite: 0.20, alpha: 1).setFill()
+        path.fill()
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.baseWritingDirection = containsRTL(label) ? .rightToLeft : .leftToRight
+        paragraph.lineBreakMode = .byWordWrapping
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont(name: "Vazirmatn-Regular", size: 14) ?? NSFont.systemFont(ofSize: 14),
+            .foregroundColor: NSColor(calibratedWhite: 0.92, alpha: 1),
+            .paragraphStyle: paragraph
+        ]
+        let insetRect = rect.insetBy(dx: 10, dy: 8)
+        (label as NSString).draw(with: insetRect, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes)
+    }
+
+    private func drawMermaidArrow(from startRect: NSRect, to endRect: NSRect) {
+        let start = NSPoint(x: startRect.maxX, y: startRect.midY)
+        let end = NSPoint(x: endRect.minX - 2, y: endRect.midY)
+        let line = NSBezierPath()
+        line.move(to: start)
+        line.line(to: end)
+        NSColor(calibratedWhite: 0.72, alpha: 0.86).setStroke()
+        line.lineWidth = 1
+        line.stroke()
+
+        let arrow = NSBezierPath()
+        arrow.move(to: end)
+        arrow.line(to: NSPoint(x: end.x - 7, y: end.y + 4))
+        arrow.move(to: end)
+        arrow.line(to: NSPoint(x: end.x - 7, y: end.y - 4))
+        arrow.lineWidth = 1
+        arrow.stroke()
+    }
+
+    private func containsRTL(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x0590...0x08FF, 0xFB50...0xFDFF, 0xFE70...0xFEFF:
+                return true
+            default:
+                return false
+            }
         }
     }
 }
