@@ -190,6 +190,9 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             (textView as? CodeBlockTextView)?.mermaidDiagrams = renderedText.mermaidDiagrams.map {
                 CodeBlockTextView.MermaidDiagram(range: $0.range, nodes: $0.nodes)
             }
+            (textView as? CodeBlockTextView)?.markdownTables = renderedText.markdownTables.map {
+                CodeBlockTextView.MarkdownTable(range: $0.range, headers: $0.headers, rows: $0.rows)
+            }
 
             storage?.beginEditing()
             storage?.setAttributes(Self.baseAttributes(), range: fullRange)
@@ -232,12 +235,19 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 var nodes: [String]
             }
 
+            struct MarkdownTable {
+                var range: NSRange
+                var headers: [String]
+                var rows: [[String]]
+            }
+
             var string: String
             var boldRanges: [NSRange]
             var codeRanges: [NSRange]
             var inlineCodeRanges: [NSRange]
             var linkRanges: [LinkRange]
             var mermaidDiagrams: [MermaidDiagram]
+            var markdownTables: [MarkdownTable]
         }
 
         private static func renderedMarkdownText(from rawText: String) -> RenderedMarkdownText {
@@ -247,6 +257,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             var inlineCodeRanges: [NSRange] = []
             var linkRanges: [RenderedMarkdownText.LinkRange] = []
             var mermaidDiagrams: [RenderedMarkdownText.MermaidDiagram] = []
+            var markdownTables: [RenderedMarkdownText.MarkdownTable] = []
             var index = rawText.startIndex
             var isInCodeBlock = false
             var codeStart: Int?
@@ -288,6 +299,22 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                     if index < rawText.endIndex, rawText[index].isNewline {
                         index = rawText.index(after: index)
                     }
+                    continue
+                }
+
+                if !isInCodeBlock,
+                   !isInInlineCode,
+                   isAtLineStart(index, in: rawText),
+                   let table = markdownTable(at: index, in: rawText) {
+                    let start = (output as NSString).length
+                    let placeholder = tablePlaceholder(rowCount: table.rows.count)
+                    output.append(placeholder)
+                    markdownTables.append(RenderedMarkdownText.MarkdownTable(
+                        range: NSRange(location: start, length: (placeholder as NSString).length),
+                        headers: table.headers,
+                        rows: table.rows
+                    ))
+                    index = table.nextIndex
                     continue
                 }
 
@@ -360,11 +387,18 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                 codeRanges: codeRanges,
                 inlineCodeRanges: inlineCodeRanges,
                 linkRanges: linkRanges,
-                mermaidDiagrams: mermaidDiagrams
+                mermaidDiagrams: mermaidDiagrams,
+                markdownTables: markdownTables
             )
         }
 
         private static let mermaidPlaceholder = "\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n"
+
+        private static func tablePlaceholder(rowCount: Int) -> String {
+            let estimatedHeight = 64 + max(1, rowCount) * 82
+            let lineCount = max(5, Int(ceil(Double(estimatedHeight) / 24.0)))
+            return Array(repeating: "\u{00A0}", count: lineCount).joined(separator: "\n") + "\n"
+        }
 
         private static func mermaidDiagram(in output: String, range: NSRange) -> [String]? {
             let block = (output as NSString).substring(with: range)
@@ -397,6 +431,75 @@ struct BidirectionalTextEditor: NSViewRepresentable {
 
             guard nodes.count >= 2 else { return nil }
             return nodes
+        }
+
+        private static func markdownTable(
+            at index: String.Index,
+            in text: String
+        ) -> (headers: [String], rows: [[String]], nextIndex: String.Index)? {
+            let first = line(at: index, in: text)
+            guard first.content.contains("|") else { return nil }
+            let headers = tableCells(from: first.content)
+            guard headers.count >= 2 else { return nil }
+
+            let separator = line(at: first.nextIndex, in: text)
+            guard isTableSeparator(separator.content, columnCount: headers.count) else { return nil }
+
+            var rows: [[String]] = []
+            var cursor = separator.nextIndex
+            while cursor < text.endIndex {
+                let current = line(at: cursor, in: text)
+                let cells = tableCells(from: current.content)
+                guard cells.count >= 2 else { break }
+                rows.append(normalizedTableRow(cells, columnCount: headers.count))
+                cursor = current.nextIndex
+            }
+
+            guard !rows.isEmpty else { return nil }
+            return (headers, rows, cursor)
+        }
+
+        private static func line(at index: String.Index, in text: String) -> (content: String, nextIndex: String.Index) {
+            guard index < text.endIndex else { return ("", index) }
+            let end = text[index...].firstIndex(where: \.isNewline) ?? text.endIndex
+            let content = String(text[index..<end])
+            let nextIndex = end < text.endIndex ? text.index(after: end) : end
+            return (content, nextIndex)
+        }
+
+        private static func tableCells(from line: String) -> [String] {
+            var trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("|") {
+                trimmed.removeFirst()
+            }
+            if trimmed.hasSuffix("|") {
+                trimmed.removeLast()
+            }
+            return trimmed
+                .components(separatedBy: "|")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        }
+
+        private static func isTableSeparator(_ line: String, columnCount: Int) -> Bool {
+            let cells = tableCells(from: line)
+            guard cells.count >= columnCount else { return false }
+            return cells.allSatisfy { cell in
+                let trimmed = cell.trimmingCharacters(in: .whitespaces)
+                guard trimmed.count >= 3 else { return false }
+                return trimmed.allSatisfy { character in
+                    character == "-" || character == ":" || character == " "
+                }
+            }
+        }
+
+        private static func normalizedTableRow(_ cells: [String], columnCount: Int) -> [String] {
+            if cells.count == columnCount {
+                return cells
+            }
+            if cells.count > columnCount {
+                return Array(cells.prefix(columnCount - 1)) + [cells.dropFirst(columnCount - 1).joined(separator: " | ")]
+            }
+            return cells + Array(repeating: "", count: columnCount - cells.count)
         }
 
         private static func markdownLink(at index: String.Index, in text: String) -> (label: String, target: String, nextIndex: String.Index)? {
@@ -443,6 +546,10 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             return cursor
         }
 
+        private static func isAtLineStart(_ index: String.Index, in text: String) -> Bool {
+            index == text.startIndex || text[text.index(before: index)].isNewline
+        }
+
         private static func isIgnorableMarkdownSpacer(_ character: Character) -> Bool {
             isInvisibleMarkdownControl(character) || character.unicodeScalars.allSatisfy {
                 CharacterSet.whitespacesAndNewlines.contains($0)
@@ -470,6 +577,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             applyLinkStyling(to: storage, links: renderedText.linkRanges)
             applyCodeBlockStyling(to: storage, text: renderedText.string as NSString, ranges: renderedText.codeRanges)
             applyMermaidStyling(to: storage, ranges: renderedText.mermaidDiagrams.map(\.range))
+            applyTableStyling(to: storage, ranges: renderedText.markdownTables.map(\.range))
         }
 
         private static func applyBoldStyling(to storage: NSTextStorage, ranges: [NSRange]) {
@@ -564,6 +672,24 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             }
         }
 
+        private static func applyTableStyling(to storage: NSTextStorage, ranges: [NSRange]) {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .left
+            paragraphStyle.baseWritingDirection = .leftToRight
+            paragraphStyle.minimumLineHeight = 24
+            paragraphStyle.maximumLineHeight = 24
+            paragraphStyle.paragraphSpacing = 10
+
+            ranges.forEach { range in
+                guard range.length > 0 else { return }
+                storage.addAttributes([
+                    .font: NSFont.monospacedSystemFont(ofSize: 18, weight: .regular),
+                    .foregroundColor: NSColor.clear,
+                    .paragraphStyle: paragraphStyle
+                ], range: range)
+            }
+        }
+
         private static func shouldRenderRTL(_ text: String) -> Bool {
             text.unicodeScalars.contains { scalar in
                 switch scalar.value {
@@ -583,6 +709,12 @@ final class CodeBlockTextView: NSTextView {
         var nodes: [String]
     }
 
+    struct MarkdownTable {
+        var range: NSRange
+        var headers: [String]
+        var rows: [[String]]
+    }
+
     var codeBlockRanges: [NSRange] = [] {
         didSet {
             needsDisplay = true
@@ -594,10 +726,18 @@ final class CodeBlockTextView: NSTextView {
             needsDisplay = true
         }
     }
+
+    var markdownTables: [MarkdownTable] = [] {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
     private var mermaidScrollOffsets: [Int: CGFloat] = [:]
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        drawMarkdownTables(in: dirtyRect)
         drawMermaidDiagrams(in: dirtyRect)
     }
 
@@ -718,6 +858,187 @@ final class CodeBlockTextView: NSTextView {
             blockColor.setFill()
             NSBezierPath(roundedRect: blockRect, xRadius: 12, yRadius: 12).fill()
         }
+    }
+
+    private func drawMarkdownTables(in dirtyRect: NSRect) {
+        guard
+            !markdownTables.isEmpty,
+            let layoutManager,
+            let textContainer
+        else { return }
+
+        layoutManager.ensureLayout(for: textContainer)
+
+        for table in markdownTables where table.range.length > 0 && !table.headers.isEmpty && !table.rows.isEmpty {
+            guard let containerRect = tableContainerRect(for: table, layoutManager: layoutManager, textContainer: textContainer) else {
+                continue
+            }
+            guard containerRect.intersects(dirtyRect) else { continue }
+            drawMarkdownTable(table, in: containerRect)
+        }
+    }
+
+    private func tableContainerRect(
+        for table: MarkdownTable,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer
+    ) -> NSRect? {
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: table.range, actualCharacterRange: nil)
+        guard glyphRange.length > 0 else { return nil }
+
+        let usedRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        let textOrigin = textContainerOrigin
+        let height = max(120, tablePreferredHeight(table, availableWidth: max(120, bounds.width - 16)))
+        return NSRect(
+            x: 8,
+            y: textOrigin.y + usedRect.minY - 8,
+            width: max(120, bounds.width - 16),
+            height: height
+        )
+    }
+
+    private func drawMarkdownTable(_ table: MarkdownTable, in rect: NSRect) {
+        let columnWidths = tableColumnWidths(for: table.headers.count, availableWidth: rect.width - 28)
+        let startX = rect.minX + 14
+        var y = rect.minY + 12
+        let headerHeight = tableRowHeight(cells: table.headers, columnWidths: columnWidths, isHeader: true)
+        let borderColor = NSColor(calibratedWhite: 1, alpha: 0.10)
+
+        NSColor(calibratedWhite: 0.08, alpha: 0.35).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12).fill()
+
+        drawTableRow(
+            cells: table.headers,
+            columnWidths: columnWidths,
+            origin: NSPoint(x: startX, y: y),
+            height: headerHeight,
+            isHeader: true
+        )
+        y += headerHeight
+        drawHorizontalRule(in: rect, y: y, color: borderColor)
+
+        for row in table.rows {
+            let normalized = normalizeRowForDrawing(row, columnCount: table.headers.count)
+            let rowHeight = tableRowHeight(cells: normalized, columnWidths: columnWidths, isHeader: false)
+            drawTableRow(
+                cells: normalized,
+                columnWidths: columnWidths,
+                origin: NSPoint(x: startX, y: y),
+                height: rowHeight,
+                isHeader: false
+            )
+            y += rowHeight
+            drawHorizontalRule(in: rect, y: y, color: borderColor.withAlphaComponent(0.06))
+        }
+    }
+
+    private func drawTableRow(
+        cells: [String],
+        columnWidths: [CGFloat],
+        origin: NSPoint,
+        height: CGFloat,
+        isHeader: Bool
+    ) {
+        var x = origin.x
+        for (index, width) in columnWidths.enumerated() {
+            let cell = index < cells.count ? cells[index] : ""
+            let cellRect = NSRect(x: x, y: origin.y + 12, width: width - 18, height: max(10, height - 24))
+            drawTableCell(cell, in: cellRect, isHeader: isHeader)
+            x += width
+        }
+    }
+
+    private func drawTableCell(_ text: String, in rect: NSRect, isHeader: Bool) {
+        let attributed = tableAttributedString(for: text, isHeader: isHeader)
+        attributed.draw(with: rect, options: [.usesLineFragmentOrigin, .usesFontLeading])
+    }
+
+    private func drawHorizontalRule(in rect: NSRect, y: CGFloat, color: NSColor) {
+        color.setStroke()
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: rect.minX + 14, y: y))
+        path.line(to: NSPoint(x: rect.maxX - 14, y: y))
+        path.lineWidth = 1
+        path.stroke()
+    }
+
+    private func tablePreferredHeight(_ table: MarkdownTable, availableWidth: CGFloat) -> CGFloat {
+        let columnWidths = tableColumnWidths(for: table.headers.count, availableWidth: availableWidth - 28)
+        let headerHeight = tableRowHeight(cells: table.headers, columnWidths: columnWidths, isHeader: true)
+        let rowsHeight = table.rows.reduce(CGFloat(0)) { height, row in
+            height + tableRowHeight(
+                cells: normalizeRowForDrawing(row, columnCount: table.headers.count),
+                columnWidths: columnWidths,
+                isHeader: false
+            )
+        }
+        return 24 + headerHeight + rowsHeight
+    }
+
+    private func tableRowHeight(cells: [String], columnWidths: [CGFloat], isHeader: Bool) -> CGFloat {
+        let maxCellHeight = columnWidths.enumerated().reduce(CGFloat(0)) { currentMax, item in
+            let (index, width) = item
+            let text = index < cells.count ? cells[index] : ""
+            let rect = tableAttributedString(for: text, isHeader: isHeader).boundingRect(
+                with: NSSize(width: max(20, width - 18), height: CGFloat.greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
+            return max(currentMax, ceil(rect.height))
+        }
+        return max(isHeader ? 42 : 66, maxCellHeight + 24)
+    }
+
+    private func tableColumnWidths(for columnCount: Int, availableWidth: CGFloat) -> [CGFloat] {
+        guard columnCount > 0 else { return [] }
+        if columnCount == 4 {
+            let ratios: [CGFloat] = [0.20, 0.18, 0.31, 0.31]
+            return ratios.map { floor(max(80, availableWidth * $0)) }
+        }
+        let width = floor(availableWidth / CGFloat(columnCount))
+        return Array(repeating: max(80, width), count: columnCount)
+    }
+
+    private func normalizeRowForDrawing(_ row: [String], columnCount: Int) -> [String] {
+        if row.count == columnCount {
+            return row
+        }
+        if row.count > columnCount {
+            return Array(row.prefix(columnCount - 1)) + [row.dropFirst(columnCount - 1).joined(separator: " | ")]
+        }
+        return row + Array(repeating: "", count: columnCount - row.count)
+    }
+
+    private func tableAttributedString(for text: String, isHeader: Bool) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .left
+        paragraph.baseWritingDirection = containsRTL(text) ? .rightToLeft : .leftToRight
+        paragraph.lineBreakMode = .byWordWrapping
+        paragraph.lineSpacing = 3
+
+        let baseFont = NSFont(name: isHeader ? "Vazirmatn-Bold" : "Vazirmatn-Regular", size: isHeader ? 15 : 15)
+            ?? (isHeader ? NSFont.boldSystemFont(ofSize: 15) : NSFont.systemFont(ofSize: 15))
+        let codeFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        let result = NSMutableAttributedString()
+        let parts = text.split(separator: "`", omittingEmptySubsequences: false)
+
+        for (index, part) in parts.enumerated() {
+            let isCode = index % 2 == 1
+            let segment = String(part)
+            guard !segment.isEmpty else { continue }
+            let attributes: [NSAttributedString.Key: Any] = isCode ? [
+                .font: codeFont,
+                .foregroundColor: NSColor(calibratedWhite: 0.96, alpha: 1),
+                .backgroundColor: NSColor(calibratedWhite: 0.22, alpha: 1),
+                .paragraphStyle: paragraph
+            ] : [
+                .font: baseFont,
+                .foregroundColor: isHeader ? NSColor(calibratedWhite: 0.92, alpha: 1) : NSColor(calibratedWhite: 0.90, alpha: 1),
+                .paragraphStyle: paragraph
+            ]
+            result.append(NSAttributedString(string: segment, attributes: attributes))
+        }
+
+        return result
     }
 
     private func drawMermaidDiagrams(in dirtyRect: NSRect) {
