@@ -5,7 +5,6 @@ final class ClipboardMonitor {
 
     private var timer: Timer?
     private var lastChangeCount: Int = NSPasteboard.general.changeCount
-    private var lastText: String = ""
 
     func start() {
         stop()
@@ -29,9 +28,8 @@ final class ClipboardMonitor {
 
         let text = pasteboard.string(forType: .string)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !text.isEmpty, text != lastText else { return }
+        guard !text.isEmpty else { return }
 
-        lastText = text
         onClipboardTextChanged?(text)
     }
 }
