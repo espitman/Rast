@@ -211,6 +211,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
             }
             Self.applyMarkdownStyling(to: storage, renderedText: renderedText, fullRange: fullRange)
             storage?.endEditing()
+            (textView as? CodeBlockTextView)?.updateTableLayout(force: true)
 
             if preserveSelection, !selectedRanges.isEmpty {
                 textView.selectedRanges = selectedRanges
@@ -307,7 +308,7 @@ struct BidirectionalTextEditor: NSViewRepresentable {
                    isAtLineStart(index, in: rawText),
                    let table = markdownTable(at: index, in: rawText) {
                     let start = (output as NSString).length
-                    let placeholder = tablePlaceholder(rowCount: table.rows.count)
+                    let placeholder = "\u{00A0}\n"
                     output.append(placeholder)
                     markdownTables.append(RenderedMarkdownText.MarkdownTable(
                         range: NSRange(location: start, length: (placeholder as NSString).length),
@@ -393,12 +394,6 @@ struct BidirectionalTextEditor: NSViewRepresentable {
         }
 
         private static let mermaidPlaceholder = "\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n\u{00A0}\n"
-
-        private static func tablePlaceholder(rowCount: Int) -> String {
-            let estimatedHeight = 64 + max(1, rowCount) * 82
-            let lineCount = max(5, Int(ceil(Double(estimatedHeight) / 24.0)))
-            return Array(repeating: "\u{00A0}", count: lineCount).joined(separator: "\n") + "\n"
-        }
 
         private static func mermaidDiagram(in output: String, range: NSRange) -> [String]? {
             let block = (output as NSString).substring(with: range)
@@ -734,6 +729,35 @@ final class CodeBlockTextView: NSTextView {
     }
 
     private var mermaidScrollOffsets: [Int: CGFloat] = [:]
+    private var tableLayoutWidth: CGFloat?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateTableLayout()
+    }
+
+    func updateTableLayout(force: Bool = false) {
+        let width = bounds.width
+        guard !markdownTables.isEmpty, width > 0,
+              force || tableLayoutWidth != width, let textStorage else { return }
+        tableLayoutWidth = width
+        textStorage.beginEditing()
+        for table in markdownTables where NSMaxRange(table.range) <= textStorage.length {
+            let style = NSMutableParagraphStyle()
+            let height = tableLayoutHeight(table)
+            style.minimumLineHeight = height
+            style.maximumLineHeight = height
+            textStorage.addAttribute(.paragraphStyle, value: style, range: table.range)
+        }
+        textStorage.endEditing()
+        needsDisplay = true
+    }
+
+    private var tableLayoutWidthAvailable: CGFloat { max(1, bounds.width - 16) }
+
+    private func tableLayoutHeight(_ table: MarkdownTable) -> CGFloat {
+        max(120, tablePreferredHeight(table, availableWidth: tableLayoutWidthAvailable))
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -886,14 +910,13 @@ final class CodeBlockTextView: NSTextView {
         let glyphRange = layoutManager.glyphRange(forCharacterRange: table.range, actualCharacterRange: nil)
         guard glyphRange.length > 0 else { return nil }
 
-        let usedRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
         let textOrigin = textContainerOrigin
-        let height = max(120, tablePreferredHeight(table, availableWidth: max(120, bounds.width - 16)))
         return NSRect(
             x: 8,
-            y: textOrigin.y + usedRect.minY - 8,
-            width: max(120, bounds.width - 16),
-            height: height
+            y: textOrigin.y + lineRect.minY,
+            width: tableLayoutWidthAvailable,
+            height: lineRect.height
         )
     }
 
@@ -942,7 +965,7 @@ final class CodeBlockTextView: NSTextView {
         var x = origin.x
         for (index, width) in columnWidths.enumerated() {
             let cell = index < cells.count ? cells[index] : ""
-            let cellRect = NSRect(x: x, y: origin.y + 12, width: width - 18, height: max(10, height - 24))
+            let cellRect = NSRect(x: x, y: origin.y + 12, width: max(1, width - 18), height: max(10, height - 24))
             drawTableCell(cell, in: cellRect, isHeader: isHeader)
             x += width
         }
@@ -980,7 +1003,7 @@ final class CodeBlockTextView: NSTextView {
             let (index, width) = item
             let text = index < cells.count ? cells[index] : ""
             let rect = tableAttributedString(for: text, isHeader: isHeader).boundingRect(
-                with: NSSize(width: max(20, width - 18), height: CGFloat.greatestFiniteMagnitude),
+                with: NSSize(width: max(1, width - 18), height: CGFloat.greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading]
             )
             return max(currentMax, ceil(rect.height))
@@ -990,12 +1013,12 @@ final class CodeBlockTextView: NSTextView {
 
     private func tableColumnWidths(for columnCount: Int, availableWidth: CGFloat) -> [CGFloat] {
         guard columnCount > 0 else { return [] }
+        let availableWidth = max(1, availableWidth)
         if columnCount == 4 {
             let ratios: [CGFloat] = [0.20, 0.18, 0.31, 0.31]
-            return ratios.map { floor(max(80, availableWidth * $0)) }
+            return ratios.map { availableWidth * $0 }
         }
-        let width = floor(availableWidth / CGFloat(columnCount))
-        return Array(repeating: max(80, width), count: columnCount)
+        return Array(repeating: max(1, availableWidth / CGFloat(columnCount)), count: columnCount)
     }
 
     private func normalizeRowForDrawing(_ row: [String], columnCount: Int) -> [String] {
